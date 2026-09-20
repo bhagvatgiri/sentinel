@@ -58,7 +58,7 @@ def test_unknown_kind_falls_through_to_default_style():
 def test_known_kind_returns_specific_style():
     s = style_for("phase_completed")
     assert s["chip"] == "ok"
-    assert s["icon"] == "✓"
+    assert s["icon"] == ""
     assert s["group"] == "phase"
 
 

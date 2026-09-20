@@ -166,7 +166,7 @@ class PDFReporter:
         )
         return [
             Paragraph(
-                f"⚠ {mode.value.upper()} ENGAGEMENT — NOT A CLIENT DELIVERABLE",
+                f"{mode.value.upper()} ENGAGEMENT — NOT A CLIENT DELIVERABLE",
                 banner_style,
             ),
             Paragraph(
@@ -552,4 +552,4 @@ def _esc(s: str | None) -> str:
 def _check(b: bool) -> str:
     """Wave 4 / A5 — render a boolean as a check / cross glyph for the
     gradation table. Kept as a module-level helper so tests can import it."""
-    return "✓" if b else "✗"
+    return "" if b else ""

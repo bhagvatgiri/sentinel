@@ -69,18 +69,18 @@ have() { command -v "$1" >/dev/null 2>&1; }
 check_or_install() {
   local kind="$1" name="$2" install_cmd="$3" check_cmd="${4:-$2}"
   if have "$check_cmd"; then
-    green "  ✓ $name (already installed: $(command -v $check_cmd))"
+    green "  [OK] $name (already installed: $(command -v $check_cmd))"
     return 0
   fi
   if [ "$CHECK_ONLY" -eq 1 ]; then
-    yellow "  ✗ $name (missing — would install via: $install_cmd)"
+    yellow "  [X] $name (missing — would install via: $install_cmd)"
     return 1
   fi
   yellow "  installing $name..."
   if eval "$install_cmd"; then
-    green "  ✓ $name installed"
+    green "  [OK] $name installed"
   else
-    red "  ✗ $name install failed"
+    red "  [X] $name install failed"
     return 1
   fi
 }
@@ -94,7 +94,7 @@ if ! have brew; then
   red "Homebrew not installed. Install from https://brew.sh first, then re-run."
   exit 1
 fi
-green "  ✓ brew $(brew --version | head -1 | awk '{print $2}')"
+green "  [OK] brew $(brew --version | head -1 | awk '{print $2}')"
 
 # ---- pipx (needed for Python CLI tools that conflict with venv deps) ----
 heading "Bootstrap pipx"
@@ -122,29 +122,29 @@ heading "Phase 2 scanners (active web + recon)"
 # OWASP ZAP ships as a cask (GUI app). The binary CLI is at
 # /Applications/ZAP.app/Contents/Java/zap.sh after install.
 if have zap.sh || [ -f /Applications/ZAP.app/Contents/Java/zap.sh ]; then
-  green "  ✓ zap (already installed)"
+  green "  [OK] zap (already installed)"
   ZAP_BIN=$(command -v zap.sh || echo "/Applications/ZAP.app/Contents/Java/zap.sh")
   green "    binary: $ZAP_BIN"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing OWASP ZAP cask..."
-  brew install --cask zap 2>&1 | tail -3 || red "  ✗ zap install failed"
+  brew install --cask zap 2>&1 | tail -3 || red "  [X] zap install failed"
 else
-  yellow "  ✗ zap missing — would install via: brew install --cask zap"
+  yellow "  [X] zap missing — would install via: brew install --cask zap"
 fi
 check_or_install brew nmap "brew install nmap" nmap
 check_or_install brew ffuf "brew install ffuf" ffuf
 # SecLists: not in homebrew-core; in the daniellocator/danielmiessler tap.
 if [ -d /opt/homebrew/share/seclists ] || [ -d /usr/local/share/seclists ] || [ -d /opt/homebrew/share/SecLists ]; then
-  green "  ✓ seclists wordlists present"
+  green "  [OK] seclists wordlists present"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing SecLists from danielmiessler tap..."
   brew tap danielmiessler/seclists 2>/dev/null || true
   brew install seclists 2>&1 | tail -3 || \
     (yellow "    tap install failed — falling back to git clone into ~/SecLists"; \
      git clone --depth 1 https://github.com/danielmiessler/SecLists.git "$HOME/SecLists" 2>&1 | tail -3 && \
-     green "  ✓ SecLists cloned to ~/SecLists (set FFUF_WORDLIST=~/SecLists/Discovery/Web-Content/common.txt)")
+     green "  [OK] SecLists cloned to ~/SecLists (set FFUF_WORDLIST=~/SecLists/Discovery/Web-Content/common.txt)")
 else
-  yellow "  ✗ seclists missing — would tap danielmiessler/seclists or git clone"
+  yellow "  [X] seclists missing — would tap danielmiessler/seclists or git clone"
 fi
 
 heading "Phase 3 scanners (recon + tech fingerprint)"
@@ -152,42 +152,42 @@ check_or_install brew subfinder "brew install subfinder" subfinder
 check_or_install brew amass     "brew install amass"     amass
 # whatweb is a Ruby tool; not in homebrew-core. Install via gem.
 if have whatweb; then
-  green "  ✓ whatweb (already installed)"
+  green "  [OK] whatweb (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing whatweb via gem (ruby)..."
   if have gem; then
-    gem install --user-install whatweb 2>&1 | tail -3 || red "  ✗ whatweb gem install failed"
+    gem install --user-install whatweb 2>&1 | tail -3 || red "  [X] whatweb gem install failed"
     yellow "    NOTE: ensure ~/.gem/ruby/<version>/bin is on PATH"
   else
-    red "  ✗ ruby gem not available — install ruby first"
+    red "  [X] ruby gem not available — install ruby first"
   fi
 else
-  yellow "  ✗ whatweb missing — would install via: gem install --user-install whatweb"
+  yellow "  [X] whatweb missing — would install via: gem install --user-install whatweb"
 fi
 # brew installs testssl as `testssl.sh` (not `testssl`); check both names
 if have testssl || have testssl.sh; then
-  green "  ✓ testssl"
+  green "  [OK] testssl"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing testssl..."
-  brew install testssl 2>&1 | tail -3 && green "  ✓ testssl installed"
+  brew install testssl 2>&1 | tail -3 && green "  [OK] testssl installed"
 else
-  yellow "  ✗ testssl missing — would install via: brew install testssl"
+  yellow "  [X] testssl missing — would install via: brew install testssl"
 fi
 # kiterunner: not in core, build from source if go is available.
 if have kr || have kiterunner; then
-  green "  ✓ kiterunner (already installed)"
+  green "  [OK] kiterunner (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing kiterunner (build from source via go)..."
   if have go; then
     go install github.com/assetnote/kiterunner/cmd/kr@latest 2>&1 | tail -3 \
       && green "    kiterunner built — ensure ~/go/bin on PATH" \
-      || red "    ✗ go install failed"
+      || red "    [X] go install failed"
   else
-    yellow "    ✗ go not installed (brew install go); skipping kiterunner build"
+    yellow "    [X] go not installed (brew install go); skipping kiterunner build"
     yellow "    or download a binary from https://github.com/assetnote/kiterunner/releases"
   fi
 else
-  yellow "  ✗ kiterunner missing — would build via go install"
+  yellow "  [X] kiterunner missing — would build via go install"
 fi
 
 # ---- pipx-installed scanners ----
@@ -197,16 +197,16 @@ check_or_install pipx checkov "pipx install checkov" checkov
 # wapiti3 has C extensions (zstandard, cffi) that fail to build on Python 3.13
 # in older releases. Pin a recent version with prebuilt 3.13 wheels OR use 3.12.
 if have wapiti; then
-  green "  ✓ wapiti (already installed)"
+  green "  [OK] wapiti (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing wapiti3 (latest, with Python 3.12 fallback if 3.13 build fails)..."
   pipx install wapiti3 2>&1 | tail -3 || \
     (yellow "    Python 3.13 install failed — retrying with python 3.12..."; \
      (have python3.12 || brew install python@3.12) && \
      pipx install --python python3.12 wapiti3 2>&1 | tail -3) || \
-    red "    ✗ wapiti install failed — try `pipx install --python python3.12 wapiti3` manually"
+    red "    [X] wapiti install failed — try `pipx install --python python3.12 wapiti3` manually"
 else
-  yellow "  ✗ wapiti missing — would install via: pipx install wapiti3 (or pin python3.12)"
+  yellow "  [X] wapiti missing — would install via: pipx install wapiti3 (or pin python3.12)"
 fi
 
 # ---- npm-installed scanners ----
@@ -214,13 +214,13 @@ if [ "$SKIP_SHANNON" -eq 0 ]; then
   heading "npm-installed scanners"
   # Shannon doesn't expose --version; check the package presence instead.
   if [ -d "$(npm root -g 2>/dev/null)/@keygraph/shannon" ] 2>/dev/null; then
-    green "  ✓ shannon (npm package present)"
+    green "  [OK] shannon (npm package present)"
   elif [ "$CHECK_ONLY" -eq 0 ]; then
     yellow "  installing @keygraph/shannon globally..."
     npm install -g @keygraph/shannon 2>&1 | tail -3 \
-      || red "  ✗ shannon install failed (you may need: sudo npm install -g @keygraph/shannon)"
+      || red "  [X] shannon install failed (you may need: sudo npm install -g @keygraph/shannon)"
   else
-    yellow "  ✗ shannon missing — would install via: npm install -g @keygraph/shannon"
+    yellow "  [X] shannon missing — would install via: npm install -g @keygraph/shannon"
   fi
   yellow "  NOTE: Shannon needs an AI provider key (Anthropic / Google / AWS)."
   yellow "        See https://github.com/KeygraphHQ/shannon for setup."
@@ -239,13 +239,13 @@ check_or_install pipx objection   "pipx install objection"   objection
 check_or_install brew jadx        "brew install jadx"        jadx
 check_or_install brew apktool     "brew install apktool"     apktool
 if have ipsw; then
-  green "  ✓ ipsw (already installed)"
+  green "  [OK] ipsw (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing ipsw via blacktop tap..."
   brew tap blacktop/tap 2>/dev/null || true
-  brew install ipsw 2>&1 | tail -3 || red "  ✗ ipsw install failed"
+  brew install ipsw 2>&1 | tail -3 || red "  [X] ipsw install failed"
 else
-  yellow "  ✗ ipsw missing — would install via: brew install blacktop/tap/ipsw"
+  yellow "  [X] ipsw missing — would install via: brew install blacktop/tap/ipsw"
 fi
 
 # ---- Container / Kubernetes ----
@@ -268,14 +268,14 @@ check_or_install pipx smbmap      "pipx install smbmap"      smbmap
 check_or_install pipx enum4linux-ng "pipx install git+https://github.com/cddmp/enum4linux-ng.git" enum4linux-ng
 # ldapsearch ships in openldap; macOS may already have it from /usr/bin.
 if have ldapsearch; then
-  green "  ✓ ldapsearch (already installed)"
+  green "  [OK] ldapsearch (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing openldap (provides ldapsearch)..."
-  brew install openldap 2>&1 | tail -3 || red "  ✗ openldap install failed"
+  brew install openldap 2>&1 | tail -3 || red "  [X] openldap install failed"
   yellow "    NOTE: brew openldap is keg-only; add to PATH:"
   yellow "      export PATH=\"\$(brew --prefix)/opt/openldap/bin:\$PATH\""
 else
-  yellow "  ✗ ldapsearch missing — would install via: brew install openldap"
+  yellow "  [X] ldapsearch missing — would install via: brew install openldap"
 fi
 
 # ---- OSINT depth ----
@@ -291,15 +291,15 @@ heading "Web3 / smart-contract analysis"
 check_or_install pipx slither-analyzer "pipx install slither-analyzer" slither
 # mythril needs the coincurve C build (autoconf + libtool) on macOS.
 if have myth; then
-  green "  ✓ mythril (already installed)"
+  green "  [OK] mythril (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing mythril (requires autoconf + libtool for coincurve build)..."
   brew install autoconf automake libtool 2>&1 | tail -3 || true
   pipx install mythril 2>&1 | tail -3 \
-    && green "  ✓ mythril installed" \
-    || red "  ✗ mythril install failed — see brew/pipx logs above"
+    && green "  [OK] mythril installed" \
+    || red "  [X] mythril install failed — see brew/pipx logs above"
 else
-  yellow "  ✗ mythril missing — would install via: pipx install mythril (after brew install autoconf automake libtool)"
+  yellow "  [X] mythril missing — would install via: pipx install mythril (after brew install autoconf automake libtool)"
 fi
 
 # ---- Source-code review (multi-lang) ----
@@ -310,34 +310,34 @@ check_or_install pipx bandit "pipx install bandit" bandit
 # supports ruby 2.6) so it installs out of the box. Operators wanting
 # the latest brakeman should `brew install ruby@3.2` first and re-run.
 if have brakeman; then
-  green "  ✓ brakeman (already installed)"
+  green "  [OK] brakeman (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing brakeman 5.4.1 (last version supporting macOS ruby 2.6)..."
   if have gem; then
     gem install --user-install brakeman -v 5.4.1 2>&1 | tail -3 \
-      && green "  ✓ brakeman 5.4.1 installed" \
-      || red "  ✗ brakeman gem install failed"
+      && green "  [OK] brakeman 5.4.1 installed" \
+      || red "  [X] brakeman gem install failed"
     yellow "    NOTE: ensure ~/.gem/ruby/<version>/bin is on PATH"
     yellow "    For latest brakeman: brew install ruby@3.2 && gem install brakeman"
   else
-    red "  ✗ ruby gem not available — install ruby first"
+    red "  [X] ruby gem not available — install ruby first"
   fi
 else
-  yellow "  ✗ brakeman missing — would install via: gem install --user-install brakeman -v 5.4.1"
+  yellow "  [X] brakeman missing — would install via: gem install --user-install brakeman -v 5.4.1"
 fi
 # gosec — go install. Already-have-go check from kiterunner block.
 if have gosec; then
-  green "  ✓ gosec (already installed)"
+  green "  [OK] gosec (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing gosec via go..."
   if have go; then
     go install github.com/securego/gosec/v2/cmd/gosec@latest 2>&1 | tail -3 \
-      || red "  ✗ gosec go install failed"
+      || red "  [X] gosec go install failed"
   else
-    yellow "    ✗ go not available; brew install go first"
+    yellow "    [X] go not available; brew install go first"
   fi
 else
-  yellow "  ✗ gosec missing — would install via: go install github.com/securego/gosec/v2/cmd/gosec@latest"
+  yellow "  [X] gosec missing — would install via: go install github.com/securego/gosec/v2/cmd/gosec@latest"
 fi
 
 # ---- Web / API specific ----
@@ -345,17 +345,17 @@ heading "Web / API tools"
 check_or_install brew dalfox        "brew install dalfox"        dalfox
 check_or_install pipx schemathesis  "pipx install schemathesis"  schemathesis
 if have hakrawler; then
-  green "  ✓ hakrawler (already installed)"
+  green "  [OK] hakrawler (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing hakrawler via go..."
   if have go; then
     go install github.com/hakluke/hakrawler@latest 2>&1 | tail -3 \
-      || red "  ✗ hakrawler go install failed"
+      || red "  [X] hakrawler go install failed"
   else
-    yellow "    ✗ go not available"
+    yellow "    [X] go not available"
   fi
 else
-  yellow "  ✗ hakrawler missing — would install via: go install github.com/hakluke/hakrawler@latest"
+  yellow "  [X] hakrawler missing — would install via: go install github.com/hakluke/hakrawler@latest"
 fi
 check_or_install pipx dirsearch "pipx install dirsearch" dirsearch
 
@@ -363,33 +363,33 @@ check_or_install pipx dirsearch "pipx install dirsearch" dirsearch
 heading "Recon depth tools"
 check_or_install brew findomain "brew install findomain" findomain
 if have chaos; then
-  green "  ✓ chaos (already installed)"
+  green "  [OK] chaos (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing chaos-client via go..."
   if have go; then
     go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest 2>&1 | tail -3 \
-      || red "  ✗ chaos go install failed"
+      || red "  [X] chaos go install failed"
   else
-    yellow "    ✗ go not available"
+    yellow "    [X] go not available"
   fi
 else
-  yellow "  ✗ chaos missing — would install via: go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest"
+  yellow "  [X] chaos missing — would install via: go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest"
 fi
 # Aquatone — original repo (michenriksen/aquatone) doesn't compile on Go 1.20+
 # due to a stale dependency on github.com/mvdan/xurls. We use shelld3v's
 # maintained fork which is compatible with modern Go.
 if have aquatone; then
-  green "  ✓ aquatone (already installed)"
+  green "  [OK] aquatone (already installed)"
 elif [ "$CHECK_ONLY" -eq 0 ]; then
   yellow "  installing aquatone (shelld3v fork — modern Go compatible) via go..."
   if have go; then
     go install github.com/shelld3v/aquatone@latest 2>&1 | tail -3 \
-      || red "  ✗ aquatone go install failed"
+      || red "  [X] aquatone go install failed"
   else
-    yellow "    ✗ go not available"
+    yellow "    [X] go not available"
   fi
 else
-  yellow "  ✗ aquatone missing — would install via: go install github.com/shelld3v/aquatone@latest"
+  yellow "  [X] aquatone missing — would install via: go install github.com/shelld3v/aquatone@latest"
 fi
 
 # ---- Cloud depth ----
@@ -402,7 +402,7 @@ heading "Kiterunner wordlists"
 KITE_DIR=/opt/homebrew/share/kiterunner
 [ -d /usr/local/share/kiterunner ] && KITE_DIR=/usr/local/share/kiterunner
 if [ -f "$KITE_DIR/routes-large.kite" ] || [ -f "$KITE_DIR/routes-small.kite" ]; then
-  green "  ✓ .kite wordlist present in $KITE_DIR"
+  green "  [OK] .kite wordlist present in $KITE_DIR"
 elif have kr; then
   yellow "  no .kite wordlist found. Download with:"
   yellow "    mkdir -p $KITE_DIR"
@@ -434,43 +434,43 @@ ALL_TOOLS=(
 MISSING=0
 for t in "${ALL_TOOLS[@]}"; do
   if have "$t"; then
-    green "  ✓ $t"
+    green "  [OK] $t"
   else
-    red "  ✗ $t"
+    red "  [X] $t"
     MISSING=$((MISSING + 1))
   fi
 done
 
 # testssl — brew names it testssl.sh, not testssl
 if have testssl || have testssl.sh; then
-  green "  ✓ testssl"
+  green "  [OK] testssl"
 else
-  red "  ✗ testssl"
+  red "  [X] testssl"
   MISSING=$((MISSING + 1))
 fi
 
 # ZAP — check both PATH (zap.sh symlink) and /Applications cask install.
 if have zap.sh || [ -f /Applications/ZAP.app/Contents/Java/zap.sh ]; then
-  green "  ✓ zap"
+  green "  [OK] zap"
 else
-  red "  ✗ zap"
+  red "  [X] zap"
   MISSING=$((MISSING + 1))
 fi
 
 # kiterunner: binary `kr` or `kiterunner`
 if have kr || have kiterunner; then
-  green "  ✓ kiterunner (kr)"
+  green "  [OK] kiterunner (kr)"
 else
-  red "  ✗ kiterunner (kr)"
+  red "  [X] kiterunner (kr)"
   MISSING=$((MISSING + 1))
 fi
 
 # shannon: check the npm package exists, not its --version (it doesn't expose one)
 if [ "$SKIP_SHANNON" -eq 0 ]; then
   if [ -d "$(npm root -g 2>/dev/null)/@keygraph/shannon" ] 2>/dev/null; then
-    green "  ✓ shannon (npm pkg)"
+    green "  [OK] shannon (npm pkg)"
   else
-    red "  ✗ shannon (npm pkg)"
+    red "  [X] shannon (npm pkg)"
     MISSING=$((MISSING + 1))
   fi
 fi

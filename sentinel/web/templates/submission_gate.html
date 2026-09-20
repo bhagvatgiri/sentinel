@@ -34,9 +34,9 @@
 </section>
 
 <section class="mb-4 flex gap-3 text-sm" data-testid="gate-counts">
-  <span class="px-2 py-1 rounded bg-bg-card border border-line">✅ GO: {{ counts.go }}</span>
-  <span class="px-2 py-1 rounded bg-bg-card border border-line">🟡 REVIEW: {{ counts.review }}</span>
-  <span class="px-2 py-1 rounded bg-bg-card border border-line">⛔ HOLD: {{ counts.hold }}</span>
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">GO: {{ counts.go }}</span>
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">REVIEW: {{ counts.review }}</span>
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">HOLD: {{ counts.hold }}</span>
 </section>
 
 <section data-testid="submission-gate">
@@ -46,7 +46,7 @@
     </div>
   {% else %}
     {% set chip = {"go": "ok", "review": "medium", "hold": "critical"} %}
-    {% set label = {"go": "✅ GO", "review": "🟡 REVIEW", "hold": "⛔ HOLD"} %}
+    {% set label = {"go": "GO", "review": "REVIEW", "hold": "HOLD"} %}
     {% for v in verdicts %}
       <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 mb-3">
         <div class="flex items-center justify-between">

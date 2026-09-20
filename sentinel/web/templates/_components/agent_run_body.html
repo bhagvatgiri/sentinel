@@ -156,11 +156,11 @@
             {% for t in brain.processed|reverse %}
               {% set _src = (t.requested_by or '')|string %}
               {% if _src.startswith('pre-warm') %}
-                {% set _src_chip = '🔥' %}
+                {% set _src_chip = '' %}
               {% elif _src.startswith('pentest') or _src.startswith('auto') %}
-                {% set _src_chip = '🤖' %}
+                {% set _src_chip = '' %}
               {% else %}
-                {% set _src_chip = '🧑' %}
+                {% set _src_chip = '' %}
               {% endif %}
               <li class="truncate">{{ _src_chip }} {{ t.topic|e }}
                 <span class="text-fg-subtle">{{ t.chunks_added }}c · ${{ "%.3f"|format(t.cost_usd) }}</span>
@@ -202,10 +202,10 @@
             <span class="text-accent flex-1 truncate">▶ {{ e.phase|e }} started</span>
           {% elif kind == 'phase_completed' %}
             <span class="chip chip-ok text-xxs flex-shrink-0">phase</span>
-            <span class="text-fg flex-1 truncate">✓ {{ e.phase|e }} done in {{ e.duration_sec }}s · {{ e.turns }}t · ${{ "%.4f"|format(e.cost_usd) }}</span>
+            <span class="text-fg flex-1 truncate">{{ e.phase|e }} done in {{ e.duration_sec }}s · {{ e.turns }}t · ${{ "%.4f"|format(e.cost_usd) }}</span>
           {% elif kind == 'phase_failed' %}
             <span class="chip chip-critical text-xxs flex-shrink-0">phase</span>
-            <span class="text-sev-critical flex-1 truncate">✗ {{ e.phase|e }} failed: {{ e.error|e }}</span>
+            <span class="text-sev-critical flex-1 truncate">{{ e.phase|e }} failed: {{ e.error|e }}</span>
           {% elif kind == 'brain_enqueued' %}
             <span class="chip chip-medium text-xxs flex-shrink-0">brain</span>
             <span class="text-fg-muted flex-1 truncate">⊕ enqueued <span class="text-fg">{{ e.topic|e }}</span> <span class="text-fg-subtle">({{ e.requested_by|e }})</span></span>
@@ -214,37 +214,37 @@
             <span class="text-accent flex-1 truncate">▶ {{ e.topic|e }}</span>
           {% elif kind == 'brain_completed' %}
             <span class="chip chip-ok text-xxs flex-shrink-0">brain</span>
-            <span class="text-fg flex-1 truncate">✓ {{ e.topic|e }} · +{{ e.chunks_added }}c · ${{ "%.4f"|format(e.cost_usd) }}</span>
+            <span class="text-fg flex-1 truncate">{{ e.topic|e }} · +{{ e.chunks_added }}c · ${{ "%.4f"|format(e.cost_usd) }}</span>
           {% elif kind == 'brain_skipped' %}
             <span class="chip chip-info text-xxs flex-shrink-0">brain</span>
             <span class="text-fg-muted flex-1 truncate">∅ {{ e.topic|e }} <span class="text-fg-subtle">({{ e.reason|e }})</span></span>
           {% elif kind == 'brain_failed' %}
             <span class="chip chip-critical text-xxs flex-shrink-0">brain</span>
-            <span class="text-sev-critical flex-1 truncate">✗ {{ e.topic|e }}: {{ e.error|e }}</span>
+            <span class="text-sev-critical flex-1 truncate">{{ e.topic|e }}: {{ e.error|e }}</span>
           {% elif kind == 'pipeline_started' %}
             <span class="chip chip-low text-xxs flex-shrink-0">run</span>
             <span class="text-accent flex-1 truncate">▶ pipeline started · target {{ e.target|e }}</span>
           {% elif kind == 'pipeline_completed' %}
             <span class="chip chip-ok text-xxs flex-shrink-0">run</span>
-            <span class="text-fg flex-1 truncate">✓ pipeline done · {{ e.successes }}/{{ e.total_phases }} phases ok · ${{ "%.4f"|format(e.total_cost_usd) }} · {{ e.total_turns }}t</span>
+            <span class="text-fg flex-1 truncate">pipeline done · {{ e.successes }}/{{ e.total_phases }} phases ok · ${{ "%.4f"|format(e.total_cost_usd) }} · {{ e.total_turns }}t</span>
           {% elif kind == 'phase_retry' %}
             <span class="chip chip-medium text-xxs flex-shrink-0">phase</span>
             <span class="text-fg-muted flex-1 truncate">↻ {{ e.phase|e }} retry attempt {{ e.attempt }} <span class="text-fg-subtle">({{ e.last_error|e|truncate(80) }})</span></span>
           {% elif kind == 'phase_skipped_resume' %}
             <span class="chip chip-info text-xxs flex-shrink-0">phase</span>
-            <span class="text-fg-muted flex-1 truncate">⏭ {{ e.phase|e }} skipped (resume — already in .completed_phases.json)</span>
+            <span class="text-fg-muted flex-1 truncate">{{ e.phase|e }} skipped (resume — already in .completed_phases.json)</span>
           {% elif kind == 'brain_prewarm' %}
             <span class="chip chip-medium text-xxs flex-shrink-0">brain</span>
-            <span class="text-fg flex-1 truncate">🔥 pre-warm queued {{ (e.topics or [])|length }} topic(s) for {{ (e.detected or [])|join(', ')|e or 'detected stack' }}</span>
+            <span class="text-fg flex-1 truncate">pre-warm queued {{ (e.topics or [])|length }} topic(s) for {{ (e.detected or [])|join(', ')|e or 'detected stack' }}</span>
           {% elif kind == 'waf_bypass_attempt' %}
             <span class="chip chip-medium text-xxs flex-shrink-0">bypass</span>
-            <span class="text-fg-muted flex-1 truncate">⚡ {{ e.technique|e }}: {{ e.baseline_status }} → {{ e.attempt_status }} <span class="text-fg-subtle">({{ e.verdict|e }})</span></span>
+            <span class="text-fg-muted flex-1 truncate">{{ e.technique|e }}: {{ e.baseline_status }} → {{ e.attempt_status }} <span class="text-fg-subtle">({{ e.verdict|e }})</span></span>
           {% elif kind == 'origin_ip_probe_hit' %}
             <span class="chip chip-high text-xxs flex-shrink-0">bypass</span>
-            <span class="text-sev-high flex-1 truncate">🎯 origin candidate {{ e.ip|e }} via {{ e.name|e }} → {{ e.status }} ({{ e.size }}b)</span>
+            <span class="text-sev-high flex-1 truncate">origin candidate {{ e.ip|e }} via {{ e.name|e }} → {{ e.status }} ({{ e.size }}b)</span>
           {% elif kind == 'bypass_probe_ok' %}
             <span class="chip chip-info text-xxs flex-shrink-0">bypass</span>
-            <span class="text-fg-muted flex-1 truncate">🔍 {{ e.url|e }} → {{ e.status }} <span class="text-fg-subtle">(tokens={{ e.tokens_found or 0 }})</span></span>
+            <span class="text-fg-muted flex-1 truncate">{{ e.url|e }} → {{ e.status }} <span class="text-fg-subtle">(tokens={{ e.tokens_found or 0 }})</span></span>
           {% else %}
             {% set _es = event_style(kind) %}
             <span class="chip chip-{{ _es.chip|e }} text-xxs flex-shrink-0">{{ _es.icon|e }} {{ _es.label|e }}</span>

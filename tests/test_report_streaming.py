@@ -180,7 +180,7 @@ Required sections (in this order):
    ```
    | ID | Severity | Lab | Operational | Complete | Title |
    |----|----------|-----|-------------|----------|-------|
-   | CSRF-VULN-04 | High | ✓ | ✓ | ✗ | Missing CSRF token |
+   | CSRF-VULN-04 | High | | | | Missing CSRF token |
    ```
 
    - `Lab` (`reproduces_in_lab`)            — bug reproduces given any state.
@@ -189,12 +189,12 @@ Required sections (in this order):
        (no destructive testing).
    - `Complete` (`reproduces_complete`)     — bug reproduces operationally
        AND a Sentinel-synthesised remediation patch blocks the same probe
-       on a fixture. Wave 4 leaves Complete almost always ✗ — that is honest.
+       on a fixture. Wave 4 leaves Complete almost always — that is honest.
 
    These flags live on the queue entry's `verification` block. Read them
    verbatim — DO NOT infer from severity. A finding can be `live_confirmed`
    yet fail Operational (verifier had to flap the endpoint), and the report
-   must show that ✗ honestly.
+   must show that honestly.
 
    If zero entries remain after gating, render the table as:
    ```
@@ -226,7 +226,7 @@ Required sections (in this order):
      (e.g. `CAPEC-66`) — Wave 4 / A6. Read these from the entry's
      `attack_technique_ids` / `capec_ids` fields if present; otherwise
      leave a single line "ATT&CK / CAPEC: untagged".
-   - **Constraint gradation:** `Lab=✓/✗  Operational=✓/✗  Complete=✓/✗`
+   - **Constraint gradation:** `Lab=/ Operational=/ Complete=/`
      Match the row in the gradation table.
    - Affected surface (URL/endpoint/component)
    - One-paragraph technical detail

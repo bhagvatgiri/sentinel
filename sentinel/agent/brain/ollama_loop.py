@@ -271,12 +271,12 @@ async def run_brain_loop(
             )
         except asyncio.TimeoutError:
             log.warning("brain-loop: turn %d timed out after %ss", turn, per_call_timeout_sec)
-            print(f"[turn {turn}] ⚠ chat call timed out, breaking loop")
+            print(f"[turn {turn}] chat call timed out, breaking loop")
             result_status = "chat_timeout"
             break
         except Exception as e:
             log.warning("brain-loop: turn %d chat failed: %s", turn, e)
-            print(f"[turn {turn}] ✗ chat call failed: {e}")
+            print(f"[turn {turn}] chat call failed: {e}")
             result_status = "chat_error"
             break
 
@@ -296,7 +296,7 @@ async def run_brain_loop(
 
         # Log assistant text (often empty when tool_use, sometimes a plan).
         if content.strip():
-            print(f"[turn {turn}] 💬 {content.strip()[:400]}")
+            print(f"[turn {turn}] {content.strip()[:400]}")
 
         # No tool calls AND no further plan → model is done.
         if not tool_calls:
@@ -308,11 +308,11 @@ async def run_brain_loop(
                 # Either way: tell the caller this was not a successful run.
                 result_status = "no_progress"
                 is_error_flag = True
-                print(f"[turn {turn}] ⚠ stalled — 0 docs ingested, marking is_error=True")
+                print(f"[turn {turn}] stalled — 0 docs ingested, marking is_error=True")
             else:
                 result_status = "completed"
                 is_error_flag = False
-                print(f"[turn {turn}] ✓ no more tool calls — model done")
+                print(f"[turn {turn}] no more tool calls — model done")
             break
 
         # Append assistant message verbatim so the next turn sees its tool_calls.
@@ -330,7 +330,7 @@ async def run_brain_loop(
                     args = json.loads(args_raw) if args_raw.strip() else {}
                 except json.JSONDecodeError as e:
                     err = f"ERROR: invalid JSON args for {tool_name}: {e}. Got: {args_raw[:200]}"
-                    print(f"[turn {turn}] ✗ {err}")
+                    print(f"[turn {turn}] {err}")
                     messages.append({"role": "tool", "content": err})
                     continue
             elif isinstance(args_raw, dict):
@@ -342,7 +342,7 @@ async def run_brain_loop(
             if handler is None:
                 err = (f"ERROR: unknown tool {tool_name!r}. "
                        f"Allowed: {', '.join(allowed_tool_names)}")
-                print(f"[turn {turn}] ✗ {err}")
+                print(f"[turn {turn}] {err}")
                 messages.append({"role": "tool", "content": err})
                 continue
 
@@ -352,13 +352,13 @@ async def run_brain_loop(
                 result = await asyncio.wait_for(handler(args), timeout=per_call_timeout_sec)
             except asyncio.TimeoutError:
                 err = f"ERROR: tool {tool_name} timed out after {per_call_timeout_sec}s"
-                print(f"[turn {turn}] ⚠ {err}")
+                print(f"[turn {turn}] {err}")
                 messages.append({"role": "tool", "content": err})
                 continue
             except Exception as e:
                 err = f"ERROR: tool {tool_name} raised {type(e).__name__}: {e}"
                 log.exception("brain-loop: tool %s raised", tool_name)
-                print(f"[turn {turn}] ✗ {err}")
+                print(f"[turn {turn}] {err}")
                 messages.append({"role": "tool", "content": err[:1000]})
                 continue
 
@@ -371,7 +371,7 @@ async def run_brain_loop(
             pages_at_last_progress = ctx.pages_fetched
             last_progress_turn = turn
         elif turn - last_progress_turn >= early_exit_no_progress_turns:
-            print(f"[turn {turn}] ✓ no progress in {early_exit_no_progress_turns} turns — exiting")
+            print(f"[turn {turn}] no progress in {early_exit_no_progress_turns} turns — exiting")
             # Some pages may have been fetched, but if nothing was actually
             # ingested the run is a stall, not a success.
             if ctx.docs_added == 0:

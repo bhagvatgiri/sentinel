@@ -2131,7 +2131,7 @@ def _do_triage_findings(args) -> int:
         print(json.dumps(result, indent=2))
         return 0
 
-    icon = {"go": "✅ GO    ", "review": "🟡 REVIEW", "hold": "⛔ HOLD  "}
+    icon = {"go": "GO    ", "review": "REVIEW", "hold": "HOLD  "}
     # Order: HOLD first (what to drop), then REVIEW, then GO (what to submit).
     order = {"hold": 0, "review": 1, "go": 2}
     for v in sorted(result["verdicts"], key=lambda x: order[x["decision"]]):
@@ -3305,7 +3305,7 @@ def _do_info(args) -> int:
     print(f"Sentinel {__version__}")
     print(f"  Python: {sys.version.split()[0]}")
     print()
-    print("Tool inventory (✓ = on PATH, ✗ = missing):")
+    print("Tool inventory (= on PATH, = missing):")
     grouped = check_all_grouped()
     for tier in ("passive", "active", "network", "ai"):
         rows = grouped.get(tier, [])
@@ -3313,7 +3313,7 @@ def _do_info(args) -> int:
             continue
         print(f"\n  [{tier}]")
         for r in rows:
-            marker = "✓" if r["ok"] else "✗"
+            marker = "" if r["ok"] else ""
             label = f"{r['name']:<14} {r['label']}"
             print(f"  {marker} {label}")
     # Ollama check.

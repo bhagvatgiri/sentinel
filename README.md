@@ -2,9 +2,9 @@
 
 **An autonomous, scope-gated penetration-testing platform.** Sentinel runs a full application-security engagement end to end — recon → vulnerability discovery → exploitation → cross-finding correlation → reporting — by pairing deterministic open-source scanners with multi-agent LLM reasoning, all behind a strict authorization and audit boundary.
 
-> ⚠️ **Authorized use only.** Sentinel performs active security testing. Every operation is gated by a scope file you control, and it must only be pointed at assets you are explicitly authorized to test. See [Safety model](#safety-model).
+> **Authorized use only.** Sentinel performs active security testing. Every operation is gated by a scope file you control, and it must only be pointed at assets you are explicitly authorized to test. See [Safety model](#safety-model).
 
-> 📦 **Note:** engagement data, corpora, model weights, and credentials are not part of this repository (see [What's excluded](#whats-excluded)). The scanners, agent pipeline, RAG plumbing, reporting, and dashboard are all here.
+> **Note:** engagement data, corpora, model weights, and credentials are not part of this repository (see [What's excluded](#whats-excluded)). The scanners, agent pipeline, RAG plumbing, reporting, and dashboard are all here.
 
 ---
 
@@ -118,4 +118,5 @@ Sentinel is a security research tool. Use it only against systems you own or are
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This software is proprietary and is owned solely by the author. It is provided for
+educational and reference purposes only. See [LICENSE](LICENSE) for the full terms.

@@ -106,7 +106,7 @@
     <div class="flex justify-between"><dt class="text-fg-muted">HTTP status</dt>   <dd class="font-mono">{{ verify_verdict.status }}</dd></div>
     <div class="flex justify-between"><dt class="text-fg-muted">Final URL</dt>     <dd class="font-mono text-xs">{{ verify_verdict.final_url|e }}</dd></div>
     <div class="flex justify-between"><dt class="text-fg-muted">Title</dt>         <dd class="text-xs">{{ verify_verdict.title|e }}</dd></div>
-    <div class="flex justify-between"><dt class="text-fg-muted">Looks authed?</dt> <dd>{{ "✓ YES" if verify_verdict.looks_authenticated else "✗ NO" }}</dd></div>
+    <div class="flex justify-between"><dt class="text-fg-muted">Looks authed?</dt> <dd>{{ "YES" if verify_verdict.looks_authenticated else "NO" }}</dd></div>
     {% if verify_verdict.error %}
     <div class="flex justify-between"><dt class="text-fg-muted">Error</dt>         <dd class="text-rose-300 text-xs">{{ verify_verdict.error|e }}</dd></div>
     {% endif %}

@@ -138,7 +138,7 @@ def test_audit_claims_quiet_on_well_formed_token():
         "iss": "https://issuer.example", "aud": "api.example.com",
         "role": "user",
     })
-    assert all("⚠" not in n and "🔥" not in n for n in notes)
+    assert all("" not in n and "" not in n for n in notes)
 
 
 # ---- _format_analysis ----------------------------------------------------
@@ -150,7 +150,7 @@ def test_format_analysis_flags_alg_none():
         sig_present=False, weak_secret=None, audit_notes=[],
     )
     assert "alg=none" in out
-    assert "🔥" in out  # critical-finding marker
+    assert "" in out  # critical-finding marker
 
 
 def test_format_analysis_flags_weak_secret():
@@ -160,7 +160,7 @@ def test_format_analysis_flags_weak_secret():
     )
     assert "WEAK HMAC SECRET" in out
     assert "'secret'" in out  # secret is short enough to print
-    assert "🔥" in out
+    assert "" in out
 
 
 def test_format_analysis_redacts_long_weak_secret():

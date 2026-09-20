@@ -35,7 +35,7 @@
     <select onchange="window.location.href='/scan?eng={{ selected_engagement.filename if selected_engagement else '' }}&mode=' + encodeURIComponent(this.value)"
             class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent">
       {% for m, desc in modes %}
-        <option value="{{ m }}" {% if m == selected_mode %}selected{% endif %}>{{ m }}{% if m in destructive_modes %} ⚠{% endif %}</option>
+        <option value="{{ m }}" {% if m == selected_mode %}selected{% endif %}>{{ m }}{% if m in destructive_modes %} {% endif %}</option>
       {% endfor %}
     </select>
   </div>

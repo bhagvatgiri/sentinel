@@ -18,11 +18,11 @@ catch yourself describing what you will do, stop and emit that tool call instead
 
 ## What this looks like
 
-❌ Wrong (this ENDS the phase prematurely):
+Wrong (this ENDS the phase prematurely):
 > "The root returns HTML with security headers. Next, let's check robots.txt and
 > sitemap.xml."  *(no tool call → loop quits, nothing was checked, no deliverable)*
 
-✅ Right (same intent, but ACTED on):
+Right (same intent, but ACTED on):
 > `http_get(url="http://target/robots.txt")`
 > *(then next turn)* `http_get(url="http://target/sitemap.xml")`
 > *(keep going through the plan…)* … `write_deliverable(...)`

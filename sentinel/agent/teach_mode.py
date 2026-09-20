@@ -206,7 +206,7 @@ def write_teach_briefs(findings: Iterable[Finding], workspace: Path, *,
                  "|---|---|---|---|"]
     for b in briefs:
         idx_lines.append(f"| `{b.finding_fingerprint}` | {b.title} | "
-                          f"{'✓' if b.used_rag else '–'} | "
+                          f"{'' if b.used_rag else '–'} | "
                           f"[`teach/{b.finding_fingerprint}.md`]"
                           f"(./teach/{b.finding_fingerprint}.md) |")
     try:

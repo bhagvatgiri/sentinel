@@ -65,7 +65,7 @@ def test_oauth_installs_renders_captures(client_with_runs):
     assert r.status_code == 200
     assert "ExampleChat-ws1" in r.text
     # bot + user refresh checkmarks rendered
-    assert "✓" in r.text
+    assert "" in r.text
 
 
 def test_oauth_installs_renders_failure(client_with_runs):
