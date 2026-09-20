@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-sec"
+version = "0.2.0"
+description = "Defensive security agent for authorized engagements (scope-gated, RAG-enabled)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Bhagvat Giri" }]
+dependencies = [
+    "PyYAML>=6.0",
+    "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+corpus = [
+    "chromadb>=0.5",
+    "pypdf>=4.0",
+]
+books = [
+    "ebooklib>=0.18",
+    "beautifulsoup4>=4.12",
+]
+web = [
+    "dnspython>=2.4",             # for scan-web DNS / email security audit
+    "fastapi>=0.115",             # for `sentinel web` (FastAPI/HTMX dashboard)
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "uvicorn>=0.30",
+]
+agent = [
+    "claude-agent-sdk>=0.1.72",   # autonomous pentest loop (`sentinel agent`)
+    "httpx>=0.27",                # web_tools.http_get / http_post
+]
+browser = [
+    "playwright>=1.45",           # browser_tool — JS-challenge / WAF bypass
+]
+all = [
+    "chromadb>=0.5",
+    "pypdf>=4.0",
+    "ebooklib>=0.18",
+    "beautifulsoup4>=4.12",
+    "dnspython>=2.4",
+    "fastapi>=0.115",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "uvicorn>=0.30",
+    "claude-agent-sdk>=0.1.72",
+    "httpx>=0.27",
+    "playwright>=1.45",
+]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+sentinel = "sentinel.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sentinel*"]

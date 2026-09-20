@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Payloads · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Payload library</h1>
+    <p class="text-fg-muted mt-1">Curated, proven-working payloads grouped by vulnerability class &amp; subtype.</p>
+  </div>
+  <form method="GET" action="/payloads" class="flex items-center gap-2">
+    <input type="text" name="q" value="{{ q|e }}" placeholder="Search payloads…"
+           class="bg-bg-elev border border-line rounded-md px-3 py-1.5 text-sm font-mono w-64" />
+    <button type="submit" class="px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold">
+      <i data-lucide="search" class="w-3.5 h-3.5 inline"></i> Search
+    </button>
+  </form>
+</section>
+
+{% if matches %}
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+      <i data-lucide="search" class="w-4 h-4 text-fg-muted"></i>
+      Matches for <span class="font-mono text-accent">"{{ q|e }}"</span> — {{ matches|length }} found
+    </div>
+    <div class="divide-y divide-line">
+      {% for m in matches %}
+        <div class="px-5 py-3">
+          <div class="text-xxs text-fg-muted mb-1">
+            <a href="/payloads/{{ m['class']|e }}/{{ m.subtype|e }}" class="text-accent hover:text-accent-hover">{{ m['class']|e }}/{{ m.subtype|e }}</a>
+            · {{ m.name|e }}
+          </div>
+          <pre class="bg-bg border border-line rounded-md p-2 text-xs font-mono text-fg overflow-x-auto"><code>{{ m.payload|e }}</code></pre>
+          {% if m.notes %}<div class="text-xxs text-fg-muted mt-1">{{ m.notes|e }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <!-- Left: classes + subtypes -->
+  <aside class="md:col-span-1 space-y-3">
+    {% for r in rows %}
+      <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+        <a href="/payloads/{{ r['class']|e }}"
+           class="block px-4 py-2.5 border-b border-line text-sm font-semibold hover:bg-bg-elev/40
+                  {% if selected_class == r['class'] %}bg-bg-elev/60{% endif %}">
+          <span class="font-mono text-accent">{{ r['class']|e }}</span>
+          <span class="text-xxs font-normal text-fg-muted ml-2">{{ r.n_subtypes }} subtypes</span>
+        </a>
+        {% if selected_class == r['class'] %}
+          <ul class="divide-y divide-line">
+            {% for st in r.subtypes %}
+              <li>
+                <a href="/payloads/{{ r['class']|e }}/{{ st|e }}"
+                   class="block px-4 py-1.5 text-xs font-mono hover:bg-bg-elev/40
+                          {% if selected_subtype == st %}bg-accent/10 text-accent{% endif %}">
+                  {{ st|e }}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </aside>
+
+  <!-- Right: selected payloads -->
+  <section class="md:col-span-2">
+    {% if selected_class and selected_subtype and payloads %}
+      <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+        <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+          <span class="font-mono text-accent">{{ selected_class|e }}</span>
+          <span class="text-fg-muted">/</span>
+          <span class="font-mono">{{ selected_subtype|e }}</span>
+          <span class="text-xxs font-normal text-fg-muted ml-2">{{ payloads|length }} payloads</span>
+        </div>
+        <div class="divide-y divide-line">
+          {% for p in payloads %}
+            <div class="px-5 py-3">
+              <div class="text-xs font-semibold mb-1">{{ p.name|e }}</div>
+              <pre class="bg-bg border border-line rounded-md p-2 text-xs font-mono text-fg overflow-x-auto"><code>{{ p.payload|e }}</code></pre>
+              {% if p.notes %}<div class="text-xxs text-fg-muted mt-1">{{ p.notes|e }}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% elif selected_class %}
+      <div class="bg-bg-card border border-line rounded-lg p-8 text-center">
+        <p class="text-fg-muted text-sm">Pick a subtype on the left.</p>
+      </div>
+    {% else %}
+      <div class="bg-bg-card border border-line rounded-lg p-8 text-center">
+        <p class="text-fg-muted text-sm">Pick a vulnerability class on the left or use search above.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

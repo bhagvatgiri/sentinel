@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Current state · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Current state</h1>
+    <p class="text-fg-muted mt-1">
+      Session-continuity snapshot generated <code class="font-mono text-fg-subtle">{{ snapshot.generated_at }}</code>
+      from <code class="font-mono text-fg-subtle">{{ snapshot.project_root }}</code>.
+    </p>
+  </div>
+  <form method="post" action="/state/refresh">
+    <button type="submit"
+            class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center gap-2 shadow-glow">
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i> Rebuild CURRENT_STATE.md
+    </button>
+  </form>
+</section>
+
+{# ---------- Active engagements ---------- #}
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">Active engagements</h2>
+  {% if snapshot.engagements %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-bg-elev/50 border-b border-line">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-5 py-2.5 font-semibold">Engagement</th>
+            <th class="px-5 py-2.5 font-semibold">Last phase</th>
+            <th class="px-5 py-2.5 font-semibold text-right">Phases</th>
+            <th class="px-5 py-2.5 font-semibold text-right">Deliv.</th>
+            <th class="px-5 py-2.5 font-semibold text-right">H1 reports</th>
+            <th class="px-5 py-2.5 font-semibold">Updated</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for e in snapshot.engagements %}
+            <tr class="hover:bg-bg-elev/40 cursor-pointer"
+                onclick="window.location.href='/workspaces/{{ e.id|e }}'">
+              <td class="px-5 py-3 font-mono text-xs">{{ e.id|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ e.last_phase or "—"|e }}</td>
+              <td class="px-5 py-3 text-xs text-right">{{ e.n_completed_phases }}</td>
+              <td class="px-5 py-3 text-xs text-right">{{ e.n_deliverables_md }}</td>
+              <td class="px-5 py-3 text-xs text-right">{{ e.h1_reports|length }}</td>
+              <td class="px-5 py-3 text-xs text-fg-muted font-mono">{{ e.mtime|e }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-fg-muted text-sm">No workspaces under <code>workspaces/</code>.</p>
+  {% endif %}
+</section>
+
+{# ---------- H1 submission queue ---------- #}
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">H1 submission queue</h2>
+  {% set h1_rows = [] %}
+  {% for e in snapshot.engagements %}
+    {% for r in e.h1_reports %}
+      {% set _ = h1_rows.append((e.id, r.file, r.title, r.status)) %}
+    {% endfor %}
+  {% endfor %}
+  {% if h1_rows %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-bg-elev/50 border-b border-line">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-5 py-2.5 font-semibold">Engagement</th>
+            <th class="px-5 py-2.5 font-semibold">File</th>
+            <th class="px-5 py-2.5 font-semibold">Title</th>
+            <th class="px-5 py-2.5 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for eng_id, fname, title, status in h1_rows %}
+            <tr class="hover:bg-bg-elev/40">
+              <td class="px-5 py-3 font-mono text-xs">{{ eng_id|e }}</td>
+              <td class="px-5 py-3 font-mono text-xxs">{{ fname|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ title|truncate(80, true)|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ status|e }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-fg-muted text-sm">No H1 reports drafted across any engagement.</p>
+  {% endif %}
+</section>
+
+{# ---------- Recent runs ---------- #}
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">Recent runs</h2>
+  {% if snapshot.recent_runs %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-bg-elev/50 border-b border-line">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-5 py-2.5 font-semibold">Run</th>
+            <th class="px-5 py-2.5 font-semibold">Client</th>
+            <th class="px-5 py-2.5 font-semibold">Engagement</th>
+            <th class="px-5 py-2.5 font-semibold text-right">Findings</th>
+            <th class="px-5 py-2.5 font-semibold text-right">Errors</th>
+            <th class="px-5 py-2.5 font-semibold">Modified</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for r in snapshot.recent_runs %}
+            <tr class="hover:bg-bg-elev/40">
+              <td class="px-5 py-3 font-mono text-xxs">{{ r.filename|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ r.client|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ r.engagement|e }}</td>
+              <td class="px-5 py-3 text-xs text-right">{{ r.n_findings }}</td>
+              <td class="px-5 py-3 text-xs text-right">{{ r.n_errors }}</td>
+              <td class="px-5 py-3 text-xs text-fg-muted font-mono">{{ r.mtime|e }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-fg-muted text-sm">No <code>runs/*.json</code> files.</p>
+  {% endif %}
+</section>
+
+{# ---------- Recent phase activity ---------- #}
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">Recent phase activity</h2>
+  {% if snapshot.recent_phase_events %}
+    <ul class="text-sm space-y-1.5">
+      {% for ev in snapshot.recent_phase_events %}
+        <li class="font-mono text-xs">
+          <span class="text-fg-muted">{{ ev.ts }}</span>
+          <span class="ml-2">{{ ev.engagement|e }}</span>
+          <span class="ml-2 text-fg-subtle">{{ ev.phase|e }}</span>
+          <span class="ml-2 px-1.5 py-0.5 rounded bg-bg-elev text-xxs">{{ ev.kind|e }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-fg-muted text-sm">No <code>runs/events-*.jsonl</code> phase events.</p>
+  {% endif %}
+</section>
+
+{# ---------- Memory index ---------- #}
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">Memory index (top entries)</h2>
+  {% if snapshot.memory_index %}
+    <ul class="text-sm space-y-1.5">
+      {% for m in snapshot.memory_index %}
+        <li>
+          <strong>{{ m.title|e }}</strong>
+          <span class="text-fg-muted">— {{ m.hook|e }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-fg-muted text-sm">No memory directory or empty <code>MEMORY.md</code>.</p>
+  {% endif %}
+</section>
+
+<details class="mb-6">
+  <summary class="cursor-pointer text-sm text-fg-muted hover:text-fg">View raw markdown</summary>
+  <pre class="bg-bg-elev/40 border border-line rounded-md p-4 mt-2 text-xs overflow-x-auto"><code>{{ rendered_markdown|e }}</code></pre>
+</details>
+{% endblock %}

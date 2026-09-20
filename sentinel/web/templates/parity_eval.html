@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Parity Benchmark · Sentinel{% endblock %}
+
+{% block content %}
+<div data-testid="parity-eval-panel">
+
+  <!-- ─── Page header ───────────────────────────────────────────────── -->
+  <section class="mb-6">
+    <h1 class="text-3xl font-semibold tracking-tight">
+      SiliconFlow Qwen 235B Parity Benchmark
+    </h1>
+    <p class="text-fg-muted mt-1">
+      BENCH-09 / BENCH-10 — runs the autonomous-pentest pipeline twice
+      per target (once per ModelRouter profile) and decides whether the
+      ModelRouter default should auto-flip to <code class="font-mono text-xs">siliconflow-qwen-235b</code>.
+      A verdict of <strong>pass</strong> requires every candidate phase
+      to hit its F1 threshold AND the per-suite cost-delta to clear the
+      80% reduction bar.
+    </p>
+  </section>
+
+  <!-- ─── Current default-profile state ─────────────────────────────── -->
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+      Current default profile
+    </div>
+    <div class="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <div class="text-xs text-fg-muted mb-1">
+          ModelRouter routes new
+          <code class="font-mono text-xxs">sentinel scan-autonomous</code>
+          runs (without an explicit <code class="font-mono text-xxs">--model-profile</code>) through:
+        </div>
+        <div class="text-lg font-mono text-accent">
+          {{ current_default_profile }}
+        </div>
+        <div class="text-xxs text-fg-subtle mt-1">
+          Persisted at <code class="font-mono">~/.sentinel/model_profile_default.txt</code>.
+          The state file is rewritten only after a parity-eval pass with
+          <code class="font-mono">verdict_overall = pass</code>.
+        </div>
+      </div>
+      {% if current_default_profile != 'anthropic-baseline' %}
+        <form method="POST" action="/bench/parity-eval/reset-default">
+          <button type="submit"
+                  class="px-3 py-1.5 rounded-md border border-line hover:bg-line/40 text-xs font-semibold">
+            Reset to anthropic-baseline
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ─── Run new benchmark form ────────────────────────────────────── -->
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+      Run a new benchmark
+    </div>
+    <form method="POST" action="/bench/parity-eval/run"
+          class="px-5 py-4 grid gap-3 md:grid-cols-4 items-end">
+      <label class="flex flex-col gap-1 md:col-span-2">
+        <span class="text-xxs uppercase tracking-wider text-fg-muted">Suite</span>
+        <input type="text" name="suite"
+               value="juice-shop,dvwa,ctf-box"
+               class="bg-bg border border-line rounded-md px-2 py-1.5 text-sm font-mono"
+               placeholder="juice-shop,dvwa,ctf-box" />
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-xxs uppercase tracking-wider text-fg-muted">Baseline</span>
+        <select name="baseline"
+                class="bg-bg border border-line rounded-md px-2 py-1.5 text-sm font-mono">
+          <option value="anthropic-baseline" selected>anthropic-baseline</option>
+          <option value="siliconflow-qwen-235b">siliconflow-qwen-235b</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-xxs uppercase tracking-wider text-fg-muted">Candidate</span>
+        <select name="candidate"
+                class="bg-bg border border-line rounded-md px-2 py-1.5 text-sm font-mono">
+          <option value="siliconflow-qwen-235b" selected>siliconflow-qwen-235b</option>
+          <option value="anthropic-baseline">anthropic-baseline</option>
+        </select>
+      </label>
+      <div class="md:col-span-4 flex items-center justify-between flex-wrap gap-2">
+        <p class="text-xxs text-fg-muted">
+          Submitting kicks off a background harness run; refresh this page
+          when the run completes (~30+ min for the full three-suite sweep).
+          The CLI <code class="font-mono">sentinel bench parity-eval</code> gives blocking + observable output.
+        </p>
+        <button type="submit"
+                class="px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold">
+          Run new benchmark
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ─── Latest eval — overall verdict + per-suite cards ───────────── -->
+  {% if latest_eval %}
+    {% set verdict = latest_eval.verdict_overall or 'unknown' %}
+    {% set banner_class =
+      'border-sev-ok/40 bg-sev-ok/10 text-sev-ok' if verdict == 'pass'
+      else ('border-sev-medium/40 bg-sev-medium/10 text-sev-medium' if verdict == 'partial'
+      else ('border-sev-critical/40 bg-sev-critical/10 text-sev-critical' if verdict == 'fail'
+      else 'border-line bg-bg-elev/40 text-fg-muted')) %}
+
+    <section class="border rounded-lg p-4 mb-6 {{ banner_class }}">
+      <div class="text-xs uppercase tracking-wider opacity-70">Overall verdict</div>
+      <div class="text-3xl font-mono font-bold mt-1">{{ verdict }}</div>
+      <div class="text-xxs mt-2 opacity-80">
+        Suite: <span class="font-mono">{{ latest_eval.suite }}</span> ·
+        Schema: <span class="font-mono">{{ latest_eval.schema_version }}</span> ·
+        Completed: <span class="font-mono">{{ latest_eval.completed_at }}</span>
+      </div>
+    </section>
+
+    <!-- Per-suite cards -->
+    {% if latest_eval.suites %}
+      <section class="grid gap-4 md:grid-cols-3 mb-6">
+        {% for suite_name, suite in latest_eval.suites.items() %}
+          {% set sv = suite.verdict or 'unknown' %}
+          {% set chip_class =
+            'bg-sev-ok/15 text-sev-ok ring-1 ring-sev-ok/30' if sv == 'pass'
+            else ('bg-sev-medium/15 text-sev-medium ring-1 ring-sev-medium/30' if sv == 'partial'
+            else ('bg-sev-critical/15 text-sev-critical ring-1 ring-sev-critical/30' if sv == 'fail'
+            else 'bg-bg-elev text-fg-muted ring-1 ring-line')) %}
+          <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+            <div class="flex items-center justify-between mb-2">
+              <div class="font-mono text-sm">{{ suite_name }}</div>
+              <span class="px-2 py-0.5 rounded text-xxs uppercase {{ chip_class }}">{{ sv }}</span>
+            </div>
+            {% set cd = suite.cost_delta or {} %}
+            {% if cd %}
+              <div class="text-xxs text-fg-muted">cost reduction</div>
+              <div class="font-mono text-2xl text-fg">
+                {{ "%.1f"|format(cd.percent_reduction or 0) }}%
+              </div>
+              <div class="text-xxs text-fg-subtle mt-1">
+                ${{ "%.4f"|format(cd.baseline_usd or 0) }} →
+                ${{ "%.4f"|format(cd.candidate_usd or 0) }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <!-- Latest Markdown report -->
+    {% if latest_report_html %}
+      <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+        <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+          Latest report (Markdown)
+        </div>
+        <article class="prose prose-invert max-w-none px-5 py-4 text-sm">
+          {{ latest_report_html | safe }}
+        </article>
+      </section>
+    {% endif %}
+
+    <!-- Eval history table -->
+    {% if eval_history %}
+      <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+        <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+          Eval history (last {{ eval_history|length }})
+        </div>
+        <table class="min-w-full text-xs">
+          <thead class="bg-bg-elev/50">
+            <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+              <th class="px-4 py-2">Completed</th>
+              <th class="px-4 py-2">Suite</th>
+              <th class="px-4 py-2">Suites</th>
+              <th class="px-4 py-2">Verdict</th>
+              <th class="px-4 py-2">Schema</th>
+              <th class="px-4 py-2">File</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line">
+            {% for row in eval_history %}
+              <tr>
+                <td class="px-4 py-2 font-mono">{{ row.completed_at or '—' }}</td>
+                <td class="px-4 py-2 font-mono">{{ row.suite }}</td>
+                <td class="px-4 py-2 font-mono">{{ row.suites_count }}</td>
+                <td class="px-4 py-2 font-mono">{{ row.verdict_overall }}</td>
+                <td class="px-4 py-2 font-mono">{{ row.schema_version }}</td>
+                <td class="px-4 py-2 font-mono text-fg-muted">{{ row.filename }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+
+  {% else %}
+    <!-- Empty state -->
+    <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <div class="px-5 py-6 text-center text-fg-muted text-sm">
+        <p class="font-semibold text-fg mb-2">No parity eval runs yet</p>
+        <p>Run one above, or via the CLI:</p>
+        <pre class="mt-2 inline-block bg-bg border border-line rounded-md px-3 py-2 text-xs font-mono text-left"><code>sentinel bench parity-eval \
+    --suite juice-shop,dvwa,ctf-box \
+    --baseline anthropic-baseline \
+    --candidate siliconflow-qwen-235b</code></pre>
+      </div>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}

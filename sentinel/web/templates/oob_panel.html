@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}OOB callbacks — {{ job_id }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      Out-of-Band Callbacks
+      <span class="text-fg-muted font-mono text-sm ml-2">job {{ job_id }}</span>
+    </h1>
+    <p class="text-fg-muted text-xs mt-1">
+      Tokens registered via <code class="font-mono">register_oob_token</code> and
+      DNS/HTTP/SMTP callbacks observed by interactsh-client. Empty when no agent
+      has called the OOB tools yet (or the engagement is
+      <code class="font-mono">oob_callbacks: disabled</code>).
+    </p>
+  </div>
+  <a href="/agent-runs/{{ job_id }}" class="text-xs text-fg-muted hover:text-fg">← run detail</a>
+</section>
+
+<section data-testid="oob-panel">
+  {% if not tokens and not callbacks %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-6 text-sm text-fg-muted">
+      No out-of-band callbacks for this run yet.
+      Either no agent registered a token, or no payload reached interact.sh.
+    </div>
+  {% else %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 mb-4">
+      <h2 class="text-lg font-semibold tracking-tight mb-2">
+        Registered tokens
+        <span class="text-fg-muted text-xs font-mono ml-1">({{ tokens|length }})</span>
+      </h2>
+      {% if tokens %}
+        <table class="text-sm w-full">
+          <thead class="text-fg-muted text-xs uppercase">
+            <tr>
+              <th class="text-left py-1 pr-3">Token</th>
+              <th class="text-left py-1 pr-3">Full URL</th>
+              <th class="text-left py-1 pr-3">Purpose</th>
+              <th class="text-left py-1 pr-3">Registered (ts)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for t in tokens %}
+            <tr class="border-t border-line">
+              <td class="py-1 pr-3 font-mono">{{ t.token|e }}</td>
+              <td class="py-1 pr-3 font-mono">{{ t.full_url|e }}</td>
+              <td class="py-1 pr-3">{{ t.purpose|e }}</td>
+              <td class="py-1 pr-3 font-mono text-xs">{{ t.ts }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-fg-muted text-xs">No tokens registered yet.</p>
+      {% endif %}
+    </div>
+
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <h2 class="text-lg font-semibold tracking-tight mb-2">
+        Callbacks received
+        <span class="text-fg-muted text-xs font-mono ml-1">({{ callbacks|length }})</span>
+      </h2>
+      {% if callbacks %}
+        <table class="text-sm w-full">
+          <thead class="text-fg-muted text-xs uppercase">
+            <tr>
+              <th class="text-left py-1 pr-3">Token</th>
+              <th class="text-left py-1 pr-3">Count</th>
+              <th class="text-left py-1 pr-3">Protocols</th>
+              <th class="text-left py-1 pr-3">Time (ts)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for c in callbacks %}
+            <tr class="border-t border-line">
+              <td class="py-1 pr-3 font-mono">{{ c.token|e }}</td>
+              <td class="py-1 pr-3 font-mono">{{ c.count }}</td>
+              <td class="py-1 pr-3">{{ c.protocols|join(", ") }}</td>
+              <td class="py-1 pr-3 font-mono text-xs">{{ c.ts }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-fg-muted text-xs">No callbacks observed for any registered token.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

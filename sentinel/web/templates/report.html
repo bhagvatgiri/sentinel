@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Report · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Reports</h1>
+  <p class="text-fg-muted mt-1">Generate the client-facing PDF + compliance overlay from a previous scan run.</p>
+</section>
+
+{% if not runs %}
+  <div class="bg-bg-card border border-line rounded-lg p-12 text-center text-fg-muted">
+    <i data-lucide="file-x" class="w-8 h-8 mx-auto mb-2 text-fg-subtle"></i>
+    <p>No runs yet — kick one off from <a href="/scan" class="text-accent hover:underline">Scan</a>.</p>
+  </div>
+{% else %}
+  <!-- Run picker -->
+  <section class="mb-6">
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Run</label>
+    <select onchange="window.location.href='/report?run=' + encodeURIComponent(this.value)"
+            class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm">
+      {% for r in runs %}
+        <option value="{{ r.filename }}" {% if selected and r.filename == selected.filename %}selected{% endif %}>
+          {{ r.client }} / {{ r.engagement }} — {{ r.findings_count }} findings ({{ r.mtime }})
+        </option>
+      {% endfor %}
+    </select>
+  </section>
+
+  {% if selected %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-5 mb-6">
+      <h2 class="text-sm font-semibold mb-1">Run summary</h2>
+      <p class="text-xs text-fg-muted">
+        <span class="font-mono">{{ selected.filename }}</span> ·
+        scanners: {{ selected.scanners | join(', ') }} ·
+        {{ selected.findings_count }} findings ·
+        {{ selected.errors_count }} errors
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <form method="POST" action="/report/pdf" class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <i data-lucide="file-text" class="w-5 h-5 text-accent"></i>
+          <h3 class="font-semibold">PDF</h3>
+        </div>
+        <p class="text-xs text-fg-muted mb-4">Client-facing deliverable: cover, severity matrix, per-finding sections, audit appendix.</p>
+        <input type="hidden" name="run_filename" value="{{ selected.filename }}" />
+        <button type="submit" class="w-full px-3 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold">Generate PDF</button>
+      </form>
+
+      <form method="POST" action="/report/compliance" class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-sev-low"></i>
+          <h3 class="font-semibold">Compliance overlay</h3>
+        </div>
+        <p class="text-xs text-fg-muted mb-4">Markdown: each finding's CWE → PCI / SOC2 / CIS / NIST CSF mapping.</p>
+        <input type="hidden" name="run_filename" value="{{ selected.filename }}" />
+        <button type="submit" class="w-full px-3 py-2 rounded-md border border-line hover:border-line-hover text-sm">Download .md</button>
+      </form>
+
+      <form method="POST" action="/report/bundle" class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <i data-lucide="package" class="w-5 h-5 text-sev-ok"></i>
+          <h3 class="font-semibold">Bundle (zip)</h3>
+        </div>
+        <p class="text-xs text-fg-muted mb-4">Both files in one zip — ready to email to the client.</p>
+        <input type="hidden" name="run_filename" value="{{ selected.filename }}" />
+        <button type="submit" class="w-full px-3 py-2 rounded-md border border-line hover:border-line-hover text-sm">Download .zip</button>
+      </form>
+    </div>
+
+    <!-- Differential report (Phase 10.4) -->
+    <section class="mt-6 bg-bg-card border border-line rounded-lg shadow-card p-5">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="git-compare-arrows" class="w-5 h-5 text-accent"></i>
+        <h3 class="font-semibold">Delta from prior engagement</h3>
+      </div>
+      <p class="text-xs text-fg-muted mb-3">Compare this run against a prior one to surface new findings, closed findings, and severity changes. Useful for re-tests.</p>
+      <form
+        hx-post="/report/diff"
+        hx-target="#diff-pane"
+        hx-swap="innerHTML"
+        class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <input type="hidden" name="run_filename" value="{{ selected.filename }}" />
+        <div class="md:col-span-2">
+          <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Prior run</label>
+          <select name="prior_run" required
+                  class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono">
+            <option value="">— pick a prior run —</option>
+            {% for r in runs %}
+              {% if r.filename != selected.filename %}
+                <option value="{{ r.filename|e }}">{{ r.filename|e }} · {{ r.findings_count }} findings · {{ r.mtime }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit"
+                  class="w-full px-3 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold">
+            <i data-lucide="git-compare-arrows" class="w-3.5 h-3.5 inline"></i> Compute delta
+          </button>
+        </div>
+      </form>
+      <div id="diff-pane" class="mt-4"></div>
+    </section>
+  {% endif %}
+{% endif %}
+{% endblock %}

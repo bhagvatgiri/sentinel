@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}ATT&CK Coverage Heatmap — Sentinel{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight mb-1">ATT&amp;CK Coverage Heatmap</h1>
+  <p class="text-sm text-fg-muted">
+    Wave 4 / A6 — kill-chain coverage matrix per engagement. Each finding's
+    ATT&amp;CK technique IDs are bucketed by tactic; tactics with zero
+    coverage are explicit so the operator sees what the engagement
+    <em>did not</em> exercise.
+  </p>
+</div>
+
+{% if not selected %}
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-6">
+    <h2 class="text-lg font-semibold mb-3">Recent runs</h2>
+    {% if not snapshots %}
+      <p class="text-sm text-fg-muted">No runs found in <code class="font-mono">{{ cfg.runs_dir }}</code>.</p>
+    {% else %}
+      <table class="w-full text-sm">
+        <thead class="text-fg-muted text-xxs uppercase">
+          <tr>
+            <th class="text-left pb-2">Run</th>
+            <th class="text-left pb-2">Client</th>
+            <th class="text-left pb-2">Engagement</th>
+            <th class="text-right pb-2">Findings</th>
+            <th class="text-right pb-2">Tactics covered</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+        {% for s in snapshots %}
+          <tr>
+            <td class="py-2 font-mono text-xs">{{ s.filename }}</td>
+            <td class="py-2">{{ s.client }}</td>
+            <td class="py-2 text-fg-muted">{{ s.engagement_id }}</td>
+            <td class="py-2 text-right">{{ s.n_findings }}</td>
+            <td class="py-2 text-right">{{ s.n_tactics_covered }} / 12</td>
+            <td class="py-2 text-right">
+              <a href="/attack-heatmap/{{ s.filename }}"
+                 class="text-accent hover:underline text-xs">view →</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+{% else %}
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">
+        Coverage for <code class="font-mono text-xs text-fg-muted">{{ selected }}</code>
+      </h2>
+      <a href="/attack-heatmap" class="text-accent hover:underline text-xs">← all runs</a>
+    </div>
+    <p class="text-sm text-fg-muted mb-4">
+      {{ n_findings }} finding(s). Auto-tagged via <code class="font-mono">attack_mapper</code>
+      for any pre-Wave-4 run JSONs.
+    </p>
+
+    <div class="grid grid-cols-1 gap-2">
+    {% for row in rows %}
+      <div class="flex items-center gap-3 p-3 rounded-md
+                  {% if row.count > 0 %}bg-line/40{% else %}bg-bg-elev opacity-50{% endif %}">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded
+                     text-xxs font-medium tracking-wide bg-line/60 ring-1 ring-line">
+          <span>{{ row.style.icon }}</span>
+          <span>{{ row.tactic }}</span>
+        </span>
+        <span class="text-sm font-mono text-fg-muted">
+          {{ row.count }} finding{% if row.count != 1 %}s{% endif %}
+        </span>
+        {% if row.techniques %}
+          <span class="text-xs font-mono text-accent">
+            {{ row.techniques | join(", ") }}
+          </span>
+        {% else %}
+          <span class="text-xs text-fg-subtle">— not exercised</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+    </div>
+  </section>
+
+  <section class="bg-bg-card border border-line rounded-lg p-4">
+    <h3 class="text-sm font-semibold mb-2 text-fg-muted">Vuln-class coverage table</h3>
+    <p class="text-xs text-fg-muted mb-3">
+      Sentinel maps these vuln classes to ATT&amp;CK + CAPEC IDs:
+    </p>
+    <div class="flex flex-wrap gap-1">
+    {% for slug in supported_classes %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xxs font-mono
+                   bg-line/40 ring-1 ring-line">{{ slug }}</span>
+    {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+{% endblock %}

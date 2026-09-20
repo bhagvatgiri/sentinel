@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Brain · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Brain</h1>
+  <p class="text-fg-muted mt-1">The knowledge corpus — Obsidian vault + Chroma vector store.</p>
+</section>
+
+<!-- Stats -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+    <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="folder-tree" class="w-4 h-4 text-fg-muted"></i> Vault</h2>
+    {% if vault.get('exists') %}
+      <div class="text-xs text-fg-muted mb-3">{{ vault.path }}</div>
+      <ul class="space-y-1.5 text-sm">
+        {% for src, count in vault.get('per_source', {}).items() %}
+          <li class="flex justify-between border-b border-line/50 py-1">
+            <span class="font-mono text-fg-muted">{{ src }}</span>
+            <span class="font-semibold">{{ count }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="mt-3 pt-2 border-t border-line text-sm font-semibold">Total: {{ vault.get('total', 0) }} notes</div>
+    {% else %}
+      <p class="text-sm text-fg-muted">{{ vault.get('reason', 'vault directory not found') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+    <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="database" class="w-4 h-4 text-fg-muted"></i> Chroma corpus</h2>
+    {% if corpus.get('available') %}
+      <div class="text-xs text-fg-muted mb-3">{{ corpus.get('path', cfg.corpus_dir) }}</div>
+      <ul class="space-y-1.5 text-sm">
+        {% for src, count in corpus.get('per_source', {}).items() %}
+          <li class="flex justify-between border-b border-line/50 py-1">
+            <span class="font-mono text-fg-muted">{{ src }}</span>
+            <span class="font-semibold">{{ count }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="mt-3 pt-2 border-t border-line text-sm font-semibold">Total: {{ corpus.get('total', 0) }} chunks</div>
+    {% else %}
+      <p class="text-sm text-sev-medium">{{ corpus.get('reason', 'corpus not available') }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Semantic search -->
+<section class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+  <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="search" class="w-4 h-4 text-fg-muted"></i> Semantic search</h2>
+  <form hx-post="/brain/search" hx-target="#brain-results" hx-swap="innerHTML" class="flex gap-2">
+    <input type="text" name="query" placeholder="What does CWE-918 cover?" required
+           class="flex-1 bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    <input type="number" name="top_k" min="1" max="20" value="8" class="w-24 bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    <button type="submit" class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold">Search</button>
+  </form>
+  <div id="brain-results" class="mt-4"></div>
+</section>
+{% endblock %}

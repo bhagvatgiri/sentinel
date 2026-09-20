@@ -1,0 +1,266 @@
+{# Body partial swapped every 2s while a run is in progress. Three panels:
+   1) Header summary (status + target + cost),
+   2) Phase ladder,
+   3) Brain panel (in-flight + queued + processed),
+   4) Activity stream.
+#}
+
+{% set meta = state.meta %}
+{% set phases = state.phases %}
+{% set brain = state.brain %}
+{% set recent = state.recent %}
+
+<!-- Header -->
+<section class="bg-bg-card border border-line rounded-lg p-5 mb-4">
+  <div class="flex items-center gap-3 flex-wrap">
+    {% if meta.status == 'running' %}
+      <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Running</span>
+    {% elif meta.status == 'completed' %}
+      <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Completed</span>
+    {% elif meta.status == 'initializing' %}
+      <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Initializing</span>
+    {% elif meta.status == 'failed' %}
+      <span class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> Failed</span>
+    {% elif meta.status == 'stalled' %}
+      <span class="chip chip-medium"><i data-lucide="pause-circle" class="w-3 h-3"></i> Stalled</span>
+    {% elif meta.status == 'aborted' %}
+      <span class="chip chip-critical"><i data-lucide="octagon-x" class="w-3 h-3"></i> Aborted</span>
+    {% elif meta.status == 'unknown' %}
+      <span class="chip chip-info"><i data-lucide="circle-help" class="w-3 h-3"></i> Pipeline not yet reported</span>
+    {% else %}
+      <span class="chip chip-info">{{ meta.status|capitalize }}</span>
+    {% endif %}
+    {% if meta.started_payload.target %}
+      <span class="text-sm font-mono">{{ meta.started_payload.target|e }}</span>
+    {% endif %}
+    {% if meta.started_payload.engagement_id %}
+      <span class="text-xs text-fg-muted">engagement: {{ meta.started_payload.engagement_id|e }}</span>
+    {% endif %}
+    {% if meta.completed_payload.total_cost_usd is defined %}
+      <span class="ml-auto text-xs text-fg-muted">total ${{ "%.4f"|format(meta.completed_payload.total_cost_usd) }}</span>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-4 text-xxs text-fg-subtle mt-2 flex-wrap">
+    <span>events: {{ state.total_events }}</span>
+    {% if meta.started_payload.workspace %}
+      <span>workspace: <span class="font-mono">{{ meta.started_payload.workspace|e }}</span></span>
+    {% endif %}
+    {% if meta.started_payload.audit_log %}
+      <span>audit log: <span class="font-mono">{{ meta.started_payload.audit_log|e }}</span></span>
+    {% endif %}
+    {% if meta.started_payload.auto_brain %}
+      <span class="text-accent">auto-brain ON</span>
+    {% endif %}
+  </div>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+
+  <!-- Phase ladder (spans 2 cols) -->
+  <section class="lg:col-span-2 bg-bg-card border border-line rounded-lg overflow-hidden">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-2">
+      <i data-lucide="layers" class="w-4 h-4 text-fg-muted"></i> Phases
+      <span class="text-xs text-fg-muted ml-auto font-normal">{{ phases|length }}</span>
+    </div>
+    {% if not phases %}
+      <div class="px-5 py-4 text-xs text-fg-muted">Pipeline hasn't reported any phase events yet — waiting…</div>
+    {% else %}
+      <ul class="divide-y divide-line">
+        {% for p in phases %}
+          <li class="px-5 py-3 flex items-center gap-3">
+            {% if p.status == 'ok' %}
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-sev-low flex-shrink-0"></i>
+            {% elif p.status == 'failed' %}
+              <i data-lucide="x-circle" class="w-4 h-4 text-sev-critical flex-shrink-0"></i>
+            {% elif p.status == 'running' %}
+              <i data-lucide="loader" class="w-4 h-4 text-accent animate-spin flex-shrink-0"></i>
+            {% else %}
+              <i data-lucide="circle" class="w-4 h-4 text-fg-subtle flex-shrink-0"></i>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+              <div class="font-mono text-sm">{{ p.name|e }}</div>
+              {% if p.status == 'running' and p.current_tool %}
+                <div class="text-xxs text-fg-muted truncate">
+                  → <span class="font-mono">{{ p.current_tool|e }}</span>
+                  {% if p.current_tool_args %}<span class="text-fg-subtle">({{ p.current_tool_args|e }})</span>{% endif %}
+                </div>
+              {% elif p.status == 'failed' and p.error %}
+                <div class="text-xxs text-sev-critical truncate">{{ p.error|e }}</div>
+              {% endif %}
+            </div>
+            <div class="text-xxs text-fg-muted text-right flex-shrink-0 font-mono">
+              {% if p.status == 'ok' or p.status == 'failed' %}
+                {{ p.turns }}t · ${{ "%.4f"|format(p.cost_usd) }}
+                {% if p.completed_at and p.started_at %}
+                  · {{ (p.completed_at - p.started_at)|round(0)|int }}s
+                {% endif %}
+              {% elif p.status == 'running' %}
+                in flight
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <!-- Brain panel -->
+  <section class="bg-bg-card border border-line rounded-lg overflow-hidden">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-2">
+      <i data-lucide="brain" class="w-4 h-4 text-accent"></i> Brain queue
+    </div>
+    <div class="px-5 py-3 space-y-3">
+      <div>
+        <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1">In flight</div>
+        {% if brain.in_flight %}
+          <div class="text-sm font-mono flex items-center gap-2">
+            <i data-lucide="loader" class="w-3 h-3 animate-spin text-accent"></i>
+            {{ brain.in_flight|e }}
+          </div>
+        {% else %}
+          <div class="text-xs text-fg-subtle">— idle —</div>
+        {% endif %}
+      </div>
+      {% if brain.queued %}
+        <div>
+          <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1">Queued ({{ brain.queued|length }})</div>
+          <ul class="text-xs space-y-1 font-mono text-fg-muted">
+            {% for t in brain.queued[:5] %}
+              <li class="truncate">· {{ t|e }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+      <div class="grid grid-cols-2 gap-2 text-xxs">
+        <div class="bg-bg-elev/50 rounded px-2 py-1.5">
+          <div class="text-fg-muted">Processed</div>
+          <div class="text-fg font-mono">{{ brain.processed|length }}</div>
+        </div>
+        <div class="bg-bg-elev/50 rounded px-2 py-1.5">
+          <div class="text-fg-muted">Chunks added</div>
+          <div class="text-fg font-mono">{{ brain.chunks_added }}</div>
+        </div>
+        <div class="bg-bg-elev/50 rounded px-2 py-1.5">
+          <div class="text-fg-muted">Skipped (dup)</div>
+          <div class="text-fg font-mono">{{ brain.skipped|length }}</div>
+        </div>
+        <div class="bg-bg-elev/50 rounded px-2 py-1.5">
+          <div class="text-fg-muted">Brain spend</div>
+          <div class="text-fg font-mono">${{ "%.4f"|format(brain.total_cost_usd) }}</div>
+        </div>
+      </div>
+      {% if brain.processed %}
+        <div>
+          <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1 mt-2">Recently completed</div>
+          <ul class="text-xs space-y-1 font-mono text-fg-muted">
+            {% for t in brain.processed|reverse %}
+              {% set _src = (t.requested_by or '')|string %}
+              {% if _src.startswith('pre-warm') %}
+                {% set _src_chip = '🔥' %}
+              {% elif _src.startswith('pentest') or _src.startswith('auto') %}
+                {% set _src_chip = '🤖' %}
+              {% else %}
+                {% set _src_chip = '🧑' %}
+              {% endif %}
+              <li class="truncate">{{ _src_chip }} {{ t.topic|e }}
+                <span class="text-fg-subtle">{{ t.chunks_added }}c · ${{ "%.3f"|format(t.cost_usd) }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<!-- Activity stream -->
+<section class="bg-bg-card border border-line rounded-lg overflow-hidden">
+  <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-2">
+    <i data-lucide="activity" class="w-4 h-4 text-fg-muted"></i> Activity stream
+    <span class="text-xs text-fg-muted ml-auto font-normal">last {{ recent|length }} events</span>
+  </div>
+  {% if not recent %}
+    <div class="px-5 py-4 text-xs text-fg-muted">No activity yet.</div>
+  {% else %}
+    <ul class="divide-y divide-line text-xs font-mono">
+      {% for e in recent %}
+        <li class="px-5 py-2 flex items-start gap-3">
+          <span class="text-fg-subtle text-xxs flex-shrink-0 w-14">{{ ((e.ts or 0) - (meta.started_at or 0))|round(1) }}s</span>
+          {% set kind = e.kind %}
+          {% if kind == 'tool_called' %}
+            <span class="chip chip-info text-xxs flex-shrink-0">{{ e.phase|e }}</span>
+            <span class="text-fg-muted flex-1 truncate">→ <span class="text-fg">{{ e.tool_name|e }}</span> <span class="text-fg-subtle">{{ e.args_summary|e }}</span></span>
+          {% elif kind == 'tool_result' %}
+            <span class="chip chip-info text-xxs flex-shrink-0">{{ e.phase|e }}</span>
+            <span class="text-fg-muted flex-1 truncate">← {{ e.text|e }}</span>
+          {% elif kind == 'agent_text' %}
+            <span class="chip chip-low text-xxs flex-shrink-0">{{ e.phase|e }}</span>
+            <span class="text-fg flex-1 truncate">{{ e.text|e }}</span>
+          {% elif kind == 'phase_started' %}
+            <span class="chip chip-low text-xxs flex-shrink-0">phase</span>
+            <span class="text-accent flex-1 truncate">▶ {{ e.phase|e }} started</span>
+          {% elif kind == 'phase_completed' %}
+            <span class="chip chip-ok text-xxs flex-shrink-0">phase</span>
+            <span class="text-fg flex-1 truncate">✓ {{ e.phase|e }} done in {{ e.duration_sec }}s · {{ e.turns }}t · ${{ "%.4f"|format(e.cost_usd) }}</span>
+          {% elif kind == 'phase_failed' %}
+            <span class="chip chip-critical text-xxs flex-shrink-0">phase</span>
+            <span class="text-sev-critical flex-1 truncate">✗ {{ e.phase|e }} failed: {{ e.error|e }}</span>
+          {% elif kind == 'brain_enqueued' %}
+            <span class="chip chip-medium text-xxs flex-shrink-0">brain</span>
+            <span class="text-fg-muted flex-1 truncate">⊕ enqueued <span class="text-fg">{{ e.topic|e }}</span> <span class="text-fg-subtle">({{ e.requested_by|e }})</span></span>
+          {% elif kind == 'brain_started' %}
+            <span class="chip chip-medium text-xxs flex-shrink-0">brain</span>
+            <span class="text-accent flex-1 truncate">▶ {{ e.topic|e }}</span>
+          {% elif kind == 'brain_completed' %}
+            <span class="chip chip-ok text-xxs flex-shrink-0">brain</span>
+            <span class="text-fg flex-1 truncate">✓ {{ e.topic|e }} · +{{ e.chunks_added }}c · ${{ "%.4f"|format(e.cost_usd) }}</span>
+          {% elif kind == 'brain_skipped' %}
+            <span class="chip chip-info text-xxs flex-shrink-0">brain</span>
+            <span class="text-fg-muted flex-1 truncate">∅ {{ e.topic|e }} <span class="text-fg-subtle">({{ e.reason|e }})</span></span>
+          {% elif kind == 'brain_failed' %}
+            <span class="chip chip-critical text-xxs flex-shrink-0">brain</span>
+            <span class="text-sev-critical flex-1 truncate">✗ {{ e.topic|e }}: {{ e.error|e }}</span>
+          {% elif kind == 'pipeline_started' %}
+            <span class="chip chip-low text-xxs flex-shrink-0">run</span>
+            <span class="text-accent flex-1 truncate">▶ pipeline started · target {{ e.target|e }}</span>
+          {% elif kind == 'pipeline_completed' %}
+            <span class="chip chip-ok text-xxs flex-shrink-0">run</span>
+            <span class="text-fg flex-1 truncate">✓ pipeline done · {{ e.successes }}/{{ e.total_phases }} phases ok · ${{ "%.4f"|format(e.total_cost_usd) }} · {{ e.total_turns }}t</span>
+          {% elif kind == 'phase_retry' %}
+            <span class="chip chip-medium text-xxs flex-shrink-0">phase</span>
+            <span class="text-fg-muted flex-1 truncate">↻ {{ e.phase|e }} retry attempt {{ e.attempt }} <span class="text-fg-subtle">({{ e.last_error|e|truncate(80) }})</span></span>
+          {% elif kind == 'phase_skipped_resume' %}
+            <span class="chip chip-info text-xxs flex-shrink-0">phase</span>
+            <span class="text-fg-muted flex-1 truncate">⏭ {{ e.phase|e }} skipped (resume — already in .completed_phases.json)</span>
+          {% elif kind == 'brain_prewarm' %}
+            <span class="chip chip-medium text-xxs flex-shrink-0">brain</span>
+            <span class="text-fg flex-1 truncate">🔥 pre-warm queued {{ (e.topics or [])|length }} topic(s) for {{ (e.detected or [])|join(', ')|e or 'detected stack' }}</span>
+          {% elif kind == 'waf_bypass_attempt' %}
+            <span class="chip chip-medium text-xxs flex-shrink-0">bypass</span>
+            <span class="text-fg-muted flex-1 truncate">⚡ {{ e.technique|e }}: {{ e.baseline_status }} → {{ e.attempt_status }} <span class="text-fg-subtle">({{ e.verdict|e }})</span></span>
+          {% elif kind == 'origin_ip_probe_hit' %}
+            <span class="chip chip-high text-xxs flex-shrink-0">bypass</span>
+            <span class="text-sev-high flex-1 truncate">🎯 origin candidate {{ e.ip|e }} via {{ e.name|e }} → {{ e.status }} ({{ e.size }}b)</span>
+          {% elif kind == 'bypass_probe_ok' %}
+            <span class="chip chip-info text-xxs flex-shrink-0">bypass</span>
+            <span class="text-fg-muted flex-1 truncate">🔍 {{ e.url|e }} → {{ e.status }} <span class="text-fg-subtle">(tokens={{ e.tokens_found or 0 }})</span></span>
+          {% else %}
+            {% set _es = event_style(kind) %}
+            <span class="chip chip-{{ _es.chip|e }} text-xxs flex-shrink-0">{{ _es.icon|e }} {{ _es.label|e }}</span>
+            <span class="text-fg-muted flex-1 truncate">{{ e|tojson|truncate(160) }}</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+{# Phase 4.5 STREAM-06 — Streaming subscribers panel. Lives INSIDE the
+   body partial so the HTMX 2s-poll refresh picks it up automatically.
+   Renders the per-downstream-phase card list + halted banner + empty
+   state. Defensive — if `streaming` is missing from the template context
+   (legacy callers), skip the include rather than 500 on AttributeError. #}
+{% if streaming is defined %}
+  {% include "_components/agent_run_streaming_panel.html" %}
+{% endif %}

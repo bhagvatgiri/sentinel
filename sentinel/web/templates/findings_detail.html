@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% import "_components/severity_chip.html" as chips %}
+{% block title %}{{ run_filename }} · Findings · Sentinel{% endblock %}
+
+{% block content %}
+
+<!-- Header + back link -->
+<section class="mb-6">
+  <a href="/findings" class="text-xs text-fg-muted hover:text-fg flex items-center gap-1 mb-2">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All runs
+  </a>
+  <h1 class="text-3xl font-semibold tracking-tight">{{ scope.get('client','?')|e }} <span class="text-fg-muted">/</span> {{ scope.get('engagement_id','?')|e }}</h1>
+  <p class="text-fg-muted mt-1 font-mono text-xs">{{ run_filename|e }} · scanners: {{ scanners_run | join(', ') }}</p>
+</section>
+
+<!-- Severity stat row -->
+<section class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+  {% for sev in SEVERITY_ORDER %}
+    <div class="bg-bg-card border border-line rounded-lg p-3">
+      <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1">{{ sev|title }}</div>
+      <div class="text-2xl font-semibold {% if sev == 'critical' %}text-sev-critical{% elif sev == 'high' %}text-sev-high{% elif sev == 'medium' %}text-sev-medium{% elif sev == 'low' %}text-sev-low{% else %}text-fg{% endif %}">
+        {{ sev_breakdown_all.get(sev, 0) }}
+      </div>
+    </div>
+  {% endfor %}
+</section>
+
+<!-- Run errors (if any) -->
+{% if errors %}
+<section class="mb-6">
+  <details class="bg-sev-medium/5 border border-sev-medium/30 rounded-lg overflow-hidden" open>
+    <summary class="cursor-pointer list-none px-4 py-3 flex items-center gap-2 font-medium">
+      <i data-lucide="alert-triangle" class="w-4 h-4 text-sev-medium"></i>
+      Run errors ({{ errors|length }})
+      <span class="text-xs text-fg-muted font-normal ml-2">— scanners that were skipped or crashed</span>
+    </summary>
+    <ul class="px-4 pb-4 space-y-1.5 text-sm text-fg-muted font-mono">
+      {% for e in errors %}
+        <li class="border-l-2 border-sev-medium/40 pl-3">{{ e|e }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+</section>
+{% endif %}
+
+<!-- Filters -->
+<section class="mb-4 bg-bg-card border border-line rounded-lg p-4">
+  <form hx-get="/findings/{{ run_filename }}"
+        hx-target="#findings-list"
+        hx-swap="innerHTML"
+        hx-trigger="change, search delay:300ms from:input[type=text]"
+        hx-include="this"
+        class="grid grid-cols-1 md:grid-cols-5 gap-3">
+    <input type="hidden" name="partial" value="true" />
+
+    <!-- Severity -->
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Severity</label>
+      <div class="flex flex-wrap gap-1.5">
+        {% for sev in SEVERITY_ORDER %}
+          {% set count = sev_breakdown_all.get(sev, 0) %}
+          {% set is_selected = sev in selected_severity %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="severity" value="{{ sev }}" {% if is_selected %}checked{% endif %} class="sr-only peer" />
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xxs border transition-colors
+                         {% if is_selected %}border-accent bg-accent/15 text-fg{% else %}border-line text-fg-muted hover:border-line-hover{% endif %}">
+              {{ sev|title }} <span class="opacity-60">{{ count }}</span>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Scanner -->
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Scanner</label>
+      <div class="flex flex-wrap gap-1.5">
+        {% for sc in scanners_seen %}
+          {% set is_selected = sc in selected_scanner %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="scanner" value="{{ sc }}" {% if is_selected %}checked{% endif %} class="sr-only peer" />
+            <span class="inline-flex px-2 py-1 rounded-md text-xxs border transition-colors
+                         {% if is_selected %}border-accent bg-accent/15 text-fg{% else %}border-line text-fg-muted hover:border-line-hover{% endif %}">
+              {{ sc }}
+            </span>
+          </label>
+        {% endfor %}
+        {% if not scanners_seen %}<span class="text-xxs text-fg-subtle">—</span>{% endif %}
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Status</label>
+      <div class="flex flex-wrap gap-1.5">
+        {% for st in statuses_seen %}
+          {% set is_selected = st in selected_status %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="status" value="{{ st }}" {% if is_selected %}checked{% endif %} class="sr-only peer" />
+            <span class="inline-flex px-2 py-1 rounded-md text-xxs border transition-colors
+                         {% if is_selected %}border-accent bg-accent/15 text-fg{% else %}border-line text-fg-muted hover:border-line-hover{% endif %}">
+              {{ st }}
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- CWE filter + sort + hide-fp -->
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">CWE substring</label>
+      <input type="text" name="cwe" value="{{ cwe_substr|e }}" placeholder="CWE-79"
+             class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+    </div>
+
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Sort + visibility</label>
+      <select name="sort" class="w-full bg-bg-elev border border-line rounded-md px-2 py-1.5 text-xs mb-1.5">
+        {% for opt in ['severity','scanner','location'] %}
+          <option value="{{ opt }}" {% if opt == sort %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+      <label class="flex items-center gap-1.5 text-xs text-fg-muted">
+        <input type="checkbox" name="hide_fp" value="true" {% if hide_fp %}checked{% endif %} class="accent-accent" />
+        Hide false-positives
+      </label>
+    </div>
+  </form>
+</section>
+
+<!-- Findings list (HTMX target) -->
+<section id="findings-list">
+  {% include "_components/findings_list.html" %}
+</section>
+
+{% endblock %}

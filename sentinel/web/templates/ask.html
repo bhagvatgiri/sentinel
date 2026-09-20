@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Ask · Sentinel{% endblock %}
+
+{% block content %}
+<div class="mb-5 px-4 py-3 rounded-lg border border-accent/40 bg-accent/10 flex items-start gap-3">
+  <i data-lucide="info" class="w-4 h-4 mt-0.5 text-accent shrink-0"></i>
+  <div class="flex-1 text-sm">
+    <p class="font-semibold text-fg">This page is deprecated.</p>
+    <p class="text-fg-muted mt-1">
+      The single-shot Ask page has been replaced by
+      <a href="/chat" class="text-accent hover:underline font-semibold">Chat</a>,
+      a multi-turn conversational interface that grounds against the same corpus
+      with conversation memory + smart engagement-scope defaults. <code class="font-mono text-xxs">/ask</code>
+      will be removed entirely once <code class="font-mono text-xxs">/chat</code> has soaked
+      for 2-3 days without regressions.
+    </p>
+  </div>
+</div>
+
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Ask the corpus <span class="text-xs font-normal text-fg-subtle align-middle ml-2">(legacy)</span></h1>
+  <p class="text-fg-muted mt-1">RAG-grounded Q&A across OWASP, MITRE CWE/ATT&CK, NIST, NVD, writeups, and HackerOne reports.</p>
+</section>
+
+<form hx-post="/ask/query"
+      hx-target="#answer"
+      hx-swap="innerHTML"
+      hx-disabled-elt="button[type='submit']"
+      class="bg-bg-card border border-line rounded-lg shadow-card p-5 mb-6 space-y-4">
+  <div>
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Question</label>
+    <textarea name="question" rows="3" placeholder="How do I prevent SSRF when calling internal services?" required
+              class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"></textarea>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Top-K</label>
+      <input type="number" name="top_k" min="1" max="15" value="5" class="w-24 bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Restrict to sources <span class="text-fg-subtle font-normal normal-case tracking-normal">(optional)</span></label>
+      <div class="flex flex-wrap gap-1.5">
+        {% for src in sources %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="source_filter" value="{{ src }}" class="sr-only peer" />
+            <span class="inline-flex px-2 py-1 rounded-md text-xxs border border-line text-fg-muted hover:border-line-hover peer-checked:border-accent peer-checked:bg-accent/15 peer-checked:text-fg transition-colors">
+              {{ src }}
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center gap-2 shadow-glow">
+    <i data-lucide="send" class="w-4 h-4"></i> Ask
+    <span class="htmx-indicator"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i></span>
+  </button>
+</form>
+
+<section id="answer"></section>
+{% endblock %}

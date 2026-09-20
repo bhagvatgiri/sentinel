@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.name }} · Workspace · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <a href="/workspaces" class="text-xs text-fg-muted hover:text-accent inline-flex items-center gap-1">
+    <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i> All workspaces
+  </a>
+  <h1 class="text-3xl font-semibold tracking-tight mt-2 font-mono">{{ meta.name|e }}</h1>
+  <p class="text-fg-muted text-sm mt-1">
+    Modified {{ meta.mtime[:16]|replace('T',' ') }} ·
+    {{ meta.n_deliverables }} deliverables ·
+    last phase: <code class="font-mono">{{ meta.last_phase|e or '-' }}</code>
+  </p>
+</section>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <!-- Left: phase ladder + actions -->
+  <section class="md:col-span-1 space-y-4">
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5">
+        <i data-lucide="list-checks" class="w-4 h-4 text-fg-muted"></i> Completed phases
+      </h2>
+      {% if meta.completed_phases %}
+        <ul class="space-y-1.5 text-xs">
+          {% for ph in meta.completed_phases %}
+            <li class="flex items-center gap-2">
+              <span class="chip chip-ok"><i data-lucide="check" class="w-3 h-3"></i></span>
+              <code class="font-mono">{{ ph|e }}</code>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-xs text-fg-muted">No checkpoint manifest. Either the run is too old (pre-Phase 6) or it never completed a phase.</p>
+      {% endif %}
+    </div>
+
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 space-y-2">
+      <h2 class="text-sm font-semibold mb-2 flex items-center gap-1.5">
+        <i data-lucide="play" class="w-4 h-4 text-fg-muted"></i> Actions
+      </h2>
+      {% if meta.has_resume_state %}
+        <a href="/scan?mode=scan-autonomous"
+           class="block w-full text-center px-3 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline"></i> Resume in Scan page
+        </a>
+        <p class="text-xxs text-fg-muted">Pick the same engagement, check <code class="font-mono">--resume</code>, and the pipeline will skip everything in this workspace's manifest.</p>
+      {% endif %}
+      {% if meta.has_event_log %}
+        <a href="/agent-runs/{{ meta.job_id|e }}"
+           class="block w-full text-center px-3 py-2 rounded-md border border-line hover:border-accent text-xs font-semibold">
+          <i data-lucide="activity" class="w-3.5 h-3.5 inline"></i> View live event log
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <h2 class="text-sm font-semibold mb-2 flex items-center gap-1.5">
+        <i data-lucide="folder" class="w-4 h-4 text-fg-muted"></i> Paths
+      </h2>
+      <div class="text-xxs font-mono text-fg-muted space-y-1">
+        <div>workspace: <span class="text-fg">{{ meta.path|e }}</span></div>
+        <div>audit log: <span class="text-fg">{{ audit_path|e }}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Right: deliverables -->
+  <section class="md:col-span-2">
+    <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+        <i data-lucide="file-text" class="w-4 h-4 text-fg-muted"></i> Deliverables ({{ deliverables|length }})
+      </div>
+      {% if deliverables %}
+        <ul class="divide-y divide-line">
+          {% for d in deliverables %}
+            <li>
+              <button
+                class="w-full text-left px-5 py-2.5 hover:bg-bg-elev/40 flex items-center justify-between"
+                hx-get="/workspaces/{{ meta.name|e }}/deliverable/{{ d.filename|e }}"
+                hx-target="#deliverable-pane"
+                hx-swap="innerHTML"
+              >
+                <div>
+                  <div class="font-mono text-xs">{{ d.filename|e }}</div>
+                  <div class="text-xxs text-fg-subtle">{{ d.stem|e }}</div>
+                </div>
+                <span class="text-xxs text-fg-muted">{{ d.size }} bytes</span>
+              </button>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="px-5 py-4 text-xs text-fg-muted">No markdown deliverables.</p>
+      {% endif %}
+    </div>
+
+    <div id="deliverable-pane" class="mt-4"></div>
+  </section>
+</div>
+{% endblock %}

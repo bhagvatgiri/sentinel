@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Chat · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Chat with the brain</h1>
+  <p class="text-fg-muted mt-1">
+    Multi-turn conversational RAG over the corpus
+    {% if total_chunks %}<span class="font-mono">({{ '{:,}'.format(total_chunks) }} chunks)</span>{% endif %}.
+    Conversation history persists per session.
+  </p>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+  <!-- ─── Sessions sidebar ───────────────────────────────────────── -->
+  <aside class="bg-bg-card border border-line rounded-lg shadow-card p-4 h-fit">
+    <form action="/chat/new" method="post" class="space-y-3 mb-4">
+      <div>
+        <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Model</label>
+        <input type="text" name="model" value="{{ cfg.ollama_model }}"
+               placeholder="llama3.1:8b"
+               class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-sm font-mono" />
+      </div>
+      <div>
+        <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
+          Pin source filters <span class="text-fg-subtle font-normal normal-case tracking-normal">(optional)</span>
+        </label>
+        <div class="flex flex-wrap gap-1.5">
+          {% for chip in chips %}
+            <label class="cursor-pointer">
+              <input type="checkbox" name="source_filter" value="{{ chip.name }}" class="sr-only peer" />
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xxs border border-line text-fg-muted hover:border-line-hover peer-checked:border-accent peer-checked:bg-accent/15 peer-checked:text-fg transition-colors">
+                {{ chip.name }}
+                <span class="text-fg-subtle font-mono">{{ '{:,}'.format(chip.count) }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      <button type="submit" class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center justify-center gap-2">
+        <i data-lucide="message-square-plus" class="w-4 h-4"></i> New session
+      </button>
+    </form>
+
+    <h2 class="text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-2">Recent</h2>
+    {% if sessions %}
+      <ul class="space-y-1 max-h-[60vh] overflow-y-auto scrollbar-thin">
+        {% for s in sessions %}
+          <li>
+            <a href="/chat/{{ s.id }}"
+               class="block px-2 py-1.5 rounded-md text-xs hover:bg-line/40 transition-colors
+                      {% if active_session and active_session.id == s.id %}bg-accent/10 border border-accent/30 text-fg{% else %}text-fg-muted{% endif %}">
+              <span class="block truncate">{{ s.title or '(untitled)' }}</span>
+              <span class="text-fg-subtle font-mono text-xxs">{{ s.id[:16] }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-xs text-fg-muted">No sessions yet.</p>
+    {% endif %}
+  </aside>
+
+  <!-- ─── Active conversation ──────────────────────────────────── -->
+  <section>
+    {% if active_session %}
+      {# Wrap the entire conversation pane in a swappable target. The /message endpoint #}
+      {# returns _components/chat_thread.html which replaces this whole block. #}
+      {# The chat_thread component reads `session` — alias from active_session #}
+      {# (chat_show passes active_session; the POST /message handler passes session directly). #}
+      <div id="chat-thread">
+        {% with session=active_session, auto_filter_reason='' %}
+          {% include "_components/chat_thread.html" %}
+        {% endwith %}
+      </div>
+
+      <form id="chat-form"
+            data-sid="{{ active_session.id }}"
+            hx-post="/chat/{{ active_session.id }}/message"
+            hx-target="#chat-thread"
+            hx-swap="innerHTML"
+            hx-disabled-elt="#chat-form button[type='submit'], #chat-form textarea"
+            hx-on::after-request="this.querySelector('textarea').value=''; this.querySelector('textarea').focus()"
+            class="bg-bg-card border border-line rounded-lg shadow-card p-4 mt-4 space-y-3">
+        <textarea name="message" rows="3" required
+                  placeholder="Ask a follow-up..."
+                  class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"></textarea>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 text-xxs text-fg-muted">
+            <span>Top-K</span>
+            <input type="number" name="top_k" min="1" max="15" value="5"
+                   class="w-16 bg-bg-elev border border-line rounded-md px-2 py-1 text-xxs" />
+            <span>·</span>
+            <span class="font-mono">{{ active_session.model }}</span>
+            {% if active_session.source_filters %}
+              <span>·</span>
+              <span>filter: {{ active_session.source_filters|join(', ') }}</span>
+            {% endif %}
+          </div>
+          <button type="submit"
+                  class="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center gap-2 shadow-glow">
+            <i data-lucide="send" class="w-4 h-4"></i> Send
+            <span class="htmx-indicator"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i></span>
+          </button>
+        </div>
+      </form>
+      {# Phase A.1 — SSE streaming. Hijacks the form submit when streaming is #}
+      {# supported; otherwise HTMX's hx-post fallback runs unchanged. #}
+      <script>
+        (function () {
+          // Feature-detect: ReadableStream + TextDecoder + fetch with streaming body.
+          if (!window.fetch || !window.ReadableStream || !window.TextDecoder) return;
+          var form = document.getElementById('chat-form');
+          if (!form) return;
+          var sid = form.dataset.sid;
+
+          form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            // Stop HTMX from also submitting — we handle this turn ourselves.
+            if (typeof htmx !== 'undefined') {
+              try { htmx.trigger(form, 'htmx:abort'); } catch (e) {}
+            }
+
+            var ta = form.querySelector('textarea[name=message]');
+            var topK = form.querySelector('input[name=top_k]');
+            var btn = form.querySelector('button[type=submit]');
+            if (!ta || !ta.value.trim()) return;
+
+            var live = document.createElement('div');
+            live.className = 'mt-4 px-4 py-3 rounded-lg border border-line bg-bg-elev text-sm whitespace-pre-line text-fg';
+            live.id = 'live-stream';
+            live.textContent = '';
+            var liveCursor = document.createElement('span');
+            liveCursor.className = 'inline-block w-2 h-4 bg-accent ml-1 animate-pulse align-middle';
+            live.appendChild(liveCursor);
+            var thread = document.getElementById('chat-thread');
+            if (thread) thread.appendChild(live);
+            if (btn) btn.disabled = true;
+            ta.disabled = true;
+
+            var fd = new FormData();
+            fd.append('message', ta.value);
+            if (topK) fd.append('top_k', topK.value);
+
+            fetch('/chat/' + sid + '/stream', { method: 'POST', body: fd })
+              .then(function (resp) {
+                if (!resp.ok || !resp.body) throw new Error('stream HTTP ' + resp.status);
+                var reader = resp.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+
+                function processBuffer() {
+                  // SSE: events separated by \n\n; each event has lines like
+                  //   event: <name>\n
+                  //   data: <text>\n   (one or more)
+                  var idx;
+                  while ((idx = buffer.indexOf('\n\n')) !== -1) {
+                    var rawEvent = buffer.slice(0, idx);
+                    buffer = buffer.slice(idx + 2);
+                    var eventName = 'message';
+                    var dataLines = [];
+                    rawEvent.split('\n').forEach(function (l) {
+                      if (l.indexOf('event:') === 0) eventName = l.slice(6).trim();
+                      else if (l.indexOf('data:') === 0) dataLines.push(l.slice(5).replace(/^ /, ''));
+                    });
+                    var data = dataLines.join('\n');
+                    if (eventName === 'token') {
+                      // Insert before the cursor
+                      var node = document.createTextNode(data);
+                      live.insertBefore(node, liveCursor);
+                    } else if (eventName === 'done') {
+                      // Swap the full chat thread (renders citations + final formatting)
+                      fetch(data, { headers: { 'Accept': 'text/html' } })
+                        .then(function (r) { return r.text(); })
+                        .then(function (html) {
+                          if (thread) thread.innerHTML = html;
+                          ta.value = '';
+                          ta.disabled = false;
+                          if (btn) btn.disabled = false;
+                          ta.focus();
+                          // Re-render lucide icons in newly-swapped HTML.
+                          if (typeof lucide !== 'undefined') lucide.createIcons();
+                        });
+                    } else if (eventName === 'error') {
+                      live.textContent = '(stream interrupted: ' + data + ')';
+                      ta.disabled = false;
+                      if (btn) btn.disabled = false;
+                    }
+                  }
+                }
+
+                function pump() {
+                  return reader.read().then(function (chunk) {
+                    if (chunk.done) {
+                      processBuffer();
+                      return;
+                    }
+                    buffer += decoder.decode(chunk.value, { stream: true });
+                    processBuffer();
+                    return pump();
+                  });
+                }
+
+                return pump();
+              })
+              .catch(function (err) {
+                console.warn('[chat] streaming failed, falling back', err);
+                live.textContent = '(stream failed — falling back to non-streaming submit)';
+                // Let HTMX retry via the standard hx-post path.
+                if (typeof htmx !== 'undefined') {
+                  htmx.trigger(form, 'submit');
+                }
+                ta.disabled = false;
+                if (btn) btn.disabled = false;
+              });
+          }, true);  // useCapture=true to beat HTMX's submit handler
+        })();
+      </script>
+    {% else %}
+      <div class="bg-bg-card border border-line rounded-lg shadow-card p-12 text-center">
+        <i data-lucide="messages-square" class="w-12 h-12 text-fg-subtle mx-auto mb-4"></i>
+        <h2 class="text-lg font-semibold mb-2">Start a new conversation</h2>
+        <p class="text-sm text-fg-muted">
+          Pick a model + (optionally) pin source filters in the sidebar, then click <em>New session</em>.
+          Without filters, the assistant searches the whole corpus
+          {% if total_chunks %}<span class="font-mono">({{ '{:,}'.format(total_chunks) }} chunks)</span>{% endif %}.
+          For engagement-scoped questions like "<em>our recent SQL injection finding</em>",
+          the chat will auto-narrow to past-engagements on the fly.
+        </p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

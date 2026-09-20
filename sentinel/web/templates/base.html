@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Sentinel{% endblock %}</title>
+
+  <!-- Tailwind CDN with custom config -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: { DEFAULT: '#08090c', elev: '#0d0f14', card: '#11141b' },
+            line: { DEFAULT: '#1a1e29', hover: '#252a37' },
+            fg: { DEFAULT: '#e6e9ef', muted: '#8a92a4', subtle: '#5d6478' },
+            accent: { DEFAULT: '#7c5cff', hover: '#8e74ff', glow: '#7c5cff66' },
+            sev: {
+              critical: '#ef4444',
+              high:     '#f97316',
+              medium:   '#eab308',
+              low:      '#3b82f6',
+              info:     '#8a92a4',
+              ok:       '#10b981',
+            },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
+          },
+          boxShadow: {
+            'card': '0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.5)',
+            'glow': '0 0 0 1px rgba(124,92,255,0.4), 0 8px 32px -8px rgba(124,92,255,0.4)',
+          },
+          fontSize: {
+            'xxs': ['11px', '14px'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Inter + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script>
+    // HTMX 2.x by default DROPS 4xx/5xx responses silently — bad UX. Always
+    // swap so the user sees server-side error fragments. (Routes return
+    // pretty error fragments via _form_error(); without this they'd never
+    // appear in the DOM.)
+    document.addEventListener('htmx:beforeSwap', function(evt) {
+      var xhr = evt.detail.xhr;
+      if (xhr && xhr.status >= 400) {
+        evt.detail.shouldSwap = true;
+        evt.detail.isError = false;
+      }
+    });
+  </script>
+
+  <!-- Lucide icons (replaces emoji nav — kills the 'amateur tell') -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="/static/css/sentinel.css" />
+</head>
+<body class="bg-bg text-fg font-sans antialiased min-h-screen">
+
+  <!-- ─── Top nav ──────────────────────────────────────────────────────── -->
+  <header class="sticky top-0 z-40 border-b border-line bg-bg/80 backdrop-blur supports-[backdrop-filter]:bg-bg/60">
+    <div class="max-w-[1400px] mx-auto px-6 flex items-center h-14 gap-2">
+      <!-- Brand -->
+      <a href="/" class="flex items-center gap-2 mr-4 shrink-0">
+        <span class="w-7 h-7 rounded-md bg-accent/15 border border-accent/30 grid place-items-center text-accent">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </span>
+        <span class="font-semibold tracking-tight">Sentinel</span>
+        <span class="text-xxs text-fg-muted hidden sm:inline">v0.1</span>
+      </a>
+
+      <!-- Nav links -->
+      <nav class="flex items-center gap-1 overflow-x-auto scrollbar-thin">
+        {% set _nav = [
+          ('/',            'home',           'Dashboard'),
+          ('/findings',    'list-checks',    'Findings'),
+          ('/attack-heatmap', 'grid-3x3',   'ATT&CK'),
+          ('/scan',        'zap',            'Scan'),
+          ('/agent-runs',  'cpu',            'Agent runs'),
+          ('/workspaces',  'folder-tree',    'Workspaces'),
+          ('/state',       'compass',        'State'),
+          ('/bench/parity-eval', 'gauge',     'Benchmarks'),
+          ('/h1/submissions', 'send',         'H1'),
+          ('/payloads',    'flask-conical',  'Payloads'),
+          ('/library',     'library-big',    'Library'),
+          ('/chat',        'messages-square','Chat'),
+          ('/brain',       'brain',          'Brain'),
+          ('/engagements', 'folder',         'Engagements'),
+          ('/chrome',      'globe',          'Chrome'),
+          ('/signup-pending', 'user-plus',  'Signups'),
+          ('/audit',       'shield',         'Audit'),
+          ('/report',      'file-text',      'Report'),
+          ('/tools',       'wrench',         'Tools'),
+        ] %}
+        {% for href, icon, label in _nav %}
+          {% set is_active = (active_nav == label) %}
+          <a href="{{ href }}"
+             class="group flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors
+                    {% if is_active %}
+                      bg-accent/15 text-fg ring-1 ring-accent/30
+                    {% else %}
+                      text-fg-muted hover:text-fg hover:bg-line/60
+                    {% endif %}">
+            <i data-lucide="{{ icon }}" class="w-3.5 h-3.5 {% if is_active %}text-accent{% endif %}"></i>
+            <span>{{ label }}</span>
+          </a>
+        {% endfor %}
+      </nav>
+
+      <div class="ml-auto flex items-center gap-2 text-xxs text-fg-subtle">
+        <span class="hidden md:inline">localhost:8080</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Page content ────────────────────────────────────────────────── -->
+  <main class="max-w-[1400px] mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ─── Footer (slim) ───────────────────────────────────────────────── -->
+  <footer class="max-w-[1400px] mx-auto px-6 py-6 mt-12 border-t border-line text-xxs text-fg-subtle flex items-center justify-between">
+    <span>Sentinel — defensive · recon · active</span>
+    <span class="font-mono">{{ active_nav or '—' }}</span>
+  </footer>
+
+  <script>
+    // Render Lucide icons after page (and after any HTMX swap).
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+    document.body.addEventListener('htmx:afterSwap', () => lucide.createIcons());
+  </script>
+</body>
+</html>

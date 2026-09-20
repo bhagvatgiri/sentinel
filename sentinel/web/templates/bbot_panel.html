@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}bbot recon runs — {{ job_id }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      bbot Recon Runs
+      <span class="text-fg-muted font-mono text-sm ml-2">job {{ job_id }}</span>
+    </h1>
+    <p class="text-fg-muted text-xs mt-1">
+      Subprocess invocations of <code class="font-mono">bbot</code>
+      (modular OSINT framework — 60+ modules) emitted as
+      <code class="font-mono">bbot_run_completed</code> events. Each row is
+      one scope-gated, audit-logged run consolidating
+      subfinder + amass + httpx + dnsx + cert-transparency + GitHub-dork
+      + email-enum + leak-detection into one pipeline.
+    </p>
+  </div>
+  <a href="/agent-runs/{{ job_id }}" class="text-xs text-fg-muted hover:text-fg">← run detail</a>
+</section>
+
+<section data-testid="bbot-panel">
+  {% if not runs %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-6 text-sm text-fg-muted">
+      No bbot recon runs for this job yet.
+      The recon agent has not invoked <code class="font-mono">run_bbot</code>,
+      or all attempts were refused by scope.
+    </div>
+  {% else %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <h2 class="text-lg font-semibold tracking-tight mb-2">
+        Completed runs
+        <span class="text-fg-muted text-xs font-mono ml-1">({{ runs|length }})</span>
+      </h2>
+      <table class="text-sm w-full">
+        <thead class="text-fg-muted text-xs uppercase">
+          <tr>
+            <th class="text-left py-1 pr-3">Target</th>
+            <th class="text-left py-1 pr-3">Modules</th>
+            <th class="text-left py-1 pr-3">Intensity</th>
+            <th class="text-left py-1 pr-3">Events</th>
+            <th class="text-left py-1 pr-3">Duration</th>
+            <th class="text-left py-1 pr-3">Time (ts)</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in runs %}
+          <tr class="border-t border-line">
+            <td class="py-1 pr-3 font-mono">{{ r.target|e }}</td>
+            <td class="py-1 pr-3">{{ r.modules|e }}</td>
+            <td class="py-1 pr-3">{{ r.intensity|e }}</td>
+            <td class="py-1 pr-3 font-mono">{{ r.total_events }}</td>
+            <td class="py-1 pr-3 font-mono">{{ r.duration_s }}s</td>
+            <td class="py-1 pr-3 font-mono text-xs">{{ r.ts }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

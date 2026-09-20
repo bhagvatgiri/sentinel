@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}H1 submissions · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">H1 submission ledger</h1>
+    <p class="text-fg-muted mt-1">
+      Every HackerOne submission timestamp recorded via
+      <code class="font-mono text-fg-subtle">sentinel h1 record-submission</code>.
+      Each row also appears in the engagement's
+      <code class="font-mono text-fg-subtle">.audit-&lt;engagement_id&gt;.jsonl</code>
+      as a hash-chained <code class="font-mono text-fg-subtle">submission_recorded</code> event.
+    </p>
+  </div>
+</section>
+
+<section class="mb-6">
+  <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden"
+       data-testid="h1-submission-ledger">
+    {% if rows %}
+      <table class="w-full text-sm">
+        <thead class="bg-bg-elev/50 border-b border-line">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-5 py-2.5 font-semibold">Submitted at</th>
+            <th class="px-5 py-2.5 font-semibold">Engagement</th>
+            <th class="px-5 py-2.5 font-semibold">File</th>
+            <th class="px-5 py-2.5 font-semibold">Title</th>
+            <th class="px-5 py-2.5 font-semibold">H1 Report ID</th>
+            <th class="px-5 py-2.5 font-semibold">Severity</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for r in rows %}
+            <tr class="hover:bg-bg-elev/40">
+              <td class="px-5 py-3 font-mono text-xxs text-fg-muted">{{ r.submitted_at|e }}</td>
+              <td class="px-5 py-3 font-mono text-xs">{{ r.engagement_id|e }}</td>
+              <td class="px-5 py-3 font-mono text-xxs">{{ r.file|e }}</td>
+              <td class="px-5 py-3 text-xs">{{ r.title|truncate(80, true)|e }}</td>
+              <td class="px-5 py-3 font-mono text-xs">
+                {% if r.h1_url %}
+                  <a href="{{ r.h1_url|e }}" class="text-accent hover:text-accent-hover" target="_blank" rel="noopener">{{ r.h1_report_id|e }}</a>
+                {% else %}
+                  {{ r.h1_report_id|e }}
+                {% endif %}
+              </td>
+              <td class="px-5 py-3 text-xs">{{ r.severity|e }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="px-5 py-8 text-center">
+        <p class="text-fg-muted text-sm">
+          No H1 submissions recorded yet.
+        </p>
+        <p class="text-fg-subtle text-xs mt-2 font-mono">
+          sentinel h1 record-submission &lt;engagement_id&gt; &lt;file&gt; --submitted-at &lt;iso&gt;
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

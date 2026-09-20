@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ filename }} · Audit · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <a href="/audit" class="text-xs text-fg-muted hover:text-fg flex items-center gap-1 mb-2">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All audit logs
+  </a>
+  <h1 class="text-3xl font-semibold tracking-tight">{{ filename|e }}</h1>
+  <p class="text-fg-muted mt-1 font-mono text-xs">{{ log_path|e }}</p>
+</section>
+
+<section class="mb-6">
+  {% if ok %}
+    <div class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Hash chain verified — {{ entries|length }} entries</div>
+  {% else %}
+    <div class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> CHAIN BROKEN — {{ err }}</div>
+  {% endif %}
+</section>
+
+<div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-bg-elev/50 border-b border-line">
+      <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+        <th class="px-4 py-2.5 font-semibold">Time</th>
+        <th class="px-4 py-2.5 font-semibold">Event</th>
+        <th class="px-4 py-2.5 font-semibold">Payload</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line">
+      {% for e in entries %}
+        <tr class="hover:bg-bg-elev/40">
+          <td class="px-4 py-2 text-xxs font-mono text-fg-muted whitespace-nowrap">{{ e.ts|e }}</td>
+          <td class="px-4 py-2">
+            {% if e.event == 'authorized' %}
+              <span class="chip chip-ok">{{ e.event }}</span>
+            {% elif e.event == 'denied' %}
+              <span class="chip chip-critical">{{ e.event }}</span>
+            {% else %}
+              <span class="chip chip-info">{{ e.event }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 text-xs font-mono text-fg-muted">
+            {% set p = e.payload or {} %}
+            {% if p.target %}{{ p.target|e }}{% endif %}
+            {% if p.reason %}<span class="text-sev-medium">· {{ p.reason|e }}</span>{% endif %}
+            {% if p.kind %}<span class="text-fg-subtle">[{{ p.kind|e }}]</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

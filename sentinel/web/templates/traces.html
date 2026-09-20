@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Traces — Sentinel{% endblock %}
+
+{% block content %}
+
+{% if view == "index" %}
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight">Trace flame graphs</h1>
+    <p class="text-sm text-fg-muted mt-1">
+      Per-run typed parent-child span tree (Wave 2 / A4). Each row that follows
+      ran at least one tracing-instrumented phase.
+    </p>
+  </div>
+
+  {% if runs %}
+    <div class="rounded-lg border border-line bg-bg-card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="text-xs text-fg-muted bg-bg-elev border-b border-line">
+          <tr>
+            <th class="text-left px-4 py-2.5 font-medium">Job ID</th>
+            <th class="text-left px-4 py-2.5 font-medium">Status</th>
+            <th class="text-left px-4 py-2.5 font-medium">Spans</th>
+            <th class="text-left px-4 py-2.5 font-medium">Size</th>
+            <th class="text-left px-4 py-2.5 font-medium">Modified</th>
+            <th class="text-right px-4 py-2.5 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+            <tr class="border-b border-line/40 hover:bg-line/30">
+              <td class="px-4 py-2.5 font-mono text-xs">{{ r.job_id }}</td>
+              <td class="px-4 py-2.5">
+                <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xxs font-medium
+                  {% if r.status == 'completed' %}bg-sev-ok/15 text-sev-ok ring-1 ring-sev-ok/30
+                  {% elif r.status == 'failed' %}bg-sev-critical/15 text-sev-critical ring-1 ring-sev-critical/30
+                  {% elif r.status == 'running' %}bg-accent/15 text-accent ring-1 ring-accent/30
+                  {% else %}bg-line/40 text-fg-muted{% endif %}">{{ r.status }}</span>
+              </td>
+              <td class="px-4 py-2.5 font-mono text-xs">{{ r.n_spans }}</td>
+              <td class="px-4 py-2.5 text-xs text-fg-muted">{{ r.size_bytes }} B</td>
+              <td class="px-4 py-2.5 text-xs text-fg-muted">{{ r.mtime|round|int }}</td>
+              <td class="px-4 py-2.5 text-right">
+                <a href="/traces/{{ r.job_id }}" class="text-xs text-accent hover:text-accent-hover">view flame →</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="rounded-lg border border-line bg-bg-card p-8 text-center text-sm text-fg-muted">
+      No traced runs yet. Spans will appear here after the next pipeline run.
+    </div>
+  {% endif %}
+
+{% elif view == "empty" %}
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight">Trace — {{ job_id }}</h1>
+    <p class="text-sm text-fg-muted mt-1">No spans recorded for this run.</p>
+  </div>
+  <div class="rounded-lg border border-line bg-bg-card p-8 text-center text-sm text-fg-muted">
+    This run wrote events but no <code>span_started</code>/<code>span_ended</code>
+    events. Re-run with the Wave 2 pipeline to capture spans.
+  </div>
+
+{% else %}
+  <div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight font-mono">{{ job_id }}</h1>
+      <p class="text-sm text-fg-muted mt-1">
+        {{ n_spans }} span(s) · total wall {{ total_dur_sec|round(2) }}s
+        · <a href="/traces" class="text-accent hover:text-accent-hover">all traces</a>
+        · <a href="/agent-runs/{{ job_id }}" class="text-accent hover:text-accent-hover">agent run view</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+
+    <!-- Flame graph -->
+    <div class="rounded-lg border border-line bg-bg-card overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-line bg-bg-elev text-xs text-fg-muted">
+        Flame graph — depth = parent-child nesting · width = wall-time fraction
+      </div>
+      <div class="p-3 space-y-1 overflow-x-auto">
+        {% for row in rows %}
+          <div class="relative h-7 group" title="{{ row.span_name }} ({{ row.span_kind }}) — {{ row.duration_label }}">
+            <div class="absolute h-full rounded
+              {% if row.status == 'error' %}bg-sev-critical/20 ring-1 ring-sev-critical/40
+              {% elif row.status == 'open' %}bg-accent/15 ring-1 ring-accent/40
+              {% else %}bg-{{ row.kind_style.chip }}/15 ring-1 ring-{{ row.kind_style.chip }}/30
+              {% endif %}
+              hover:bg-{{ row.kind_style.chip }}/30 transition-colors"
+              style="left: {{ row.offset_pct }}%; width: {{ row.width_pct }}%; margin-left: {{ row.depth * 12 }}px;">
+              <div class="px-2 py-1 text-xxs font-mono whitespace-nowrap overflow-hidden">
+                <span>{{ row.kind_style.icon }}</span>
+                <span class="font-medium">{{ row.span_name }}</span>
+                <span class="text-fg-muted">· {{ row.duration_label }}</span>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Side panels -->
+    <div class="space-y-4">
+      <div class="rounded-lg border border-line bg-bg-card overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-line bg-bg-elev text-xs text-fg-muted">By kind</div>
+        <table class="w-full text-xs">
+          <tbody>
+            {% for k in kind_summary %}
+              <tr class="border-b border-line/40">
+                <td class="px-3 py-2 font-mono">{{ k.style.icon }} {{ k.kind }}</td>
+                <td class="px-3 py-2 text-right text-fg-muted">{{ k.count }}×</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.total_sec|round(2) }}s</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="rounded-lg border border-line bg-bg-card overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-line bg-bg-elev text-xs text-fg-muted">Top 10 slowest</div>
+        <table class="w-full text-xs">
+          <tbody>
+            {% for r in slowest %}
+              <tr class="border-b border-line/40">
+                <td class="px-3 py-2 font-mono truncate max-w-[180px]" title="{{ r.span_name }}">{{ r.kind_style.icon }} {{ r.span_name }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ r.duration_label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+{% endif %}
+
+{% endblock %}

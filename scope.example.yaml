@@ -1,0 +1,131 @@
+# Sentinel scope file — the authorization artifact for an engagement.
+#
+# Every active scanner refuses to act on targets outside this file. The file
+# is hashed at load time and the hash is recorded in the audit log so you can
+# prove (a) what scope was loaded and (b) that it wasn't modified mid-run.
+#
+# Generate the SHA-256 yourself with: sha256sum scope.yaml
+# Keep a signed copy of the SOW that authorizes these targets.
+
+client: acme-corp
+engagement_id: 2026-Q2-pentest-014
+authorized_by: jane.doe@acme-corp.com           # Person who signed the SOW.
+authorization_doc: ./SOW-signed-2026-04-15.pdf  # Optional but recommended.
+
+# ISO-8601 dates. Sentinel refuses to run outside this window.
+valid_from: 2026-04-15
+valid_until: 2026-07-15
+
+targets:
+  # Repos: each entry is a 'host/owner/name' or a clone URL. Sentinel
+  # normalizes both forms before comparing.
+  repos:
+    - github.com/acme-corp/api-gateway
+    - github.com/acme-corp/web-frontend
+
+  # Domains: leading '*.' is a wildcard for one level of subdomain.
+  # Bare hostnames match exactly.
+  domains:
+    - "*.staging.acme-corp.com"
+    - api.dev.acme-corp.com
+
+  # IP ranges in CIDR notation. URLs whose host resolves into one of these
+  # ranges will be authorized even if their domain isn't listed.
+  ips:
+    - 10.0.50.0/24
+
+# Anything matching out_of_scope is rejected, even if it ALSO matches a
+# target above. Use this for assets the client explicitly excludes.
+out_of_scope:
+  - prod.acme-corp.com
+  - "*.customer-data.acme-corp.com"
+
+rate_limits:
+  # Hard cap for any live scanner. nuclei is invoked with -rl <this>.
+  requests_per_second: 5
+
+# OPTIONAL: researcher-identifying headers — added on every test request.
+# Most bug-bounty programs require one of these; check the program policy.
+# research_headers:
+#   X-HackerOne-Research: my-h1-handle
+#   X-PP-BB: HackerOne-my-h1-handle      # ExamplePay-specific format
+
+# OPTIONAL: Tier-2 anti-bot bypass — manually-solved cookies.
+# Some targets (ExamplePay /signin, Akamai-protected APIs, etc.) serve
+# DataDome / Cloudflare / Akamai / PerimeterX challenges that headless
+# browsers can't solve. Workflow:
+#   1. Run: sentinel datadome-harvest <protected-url> --scope this-file.yaml
+#   2. A real Chrome window opens. Solve any challenge naturally.
+#   3. Press Enter — Sentinel captures the resulting cookies and writes
+#      them to the auth_cookies block below (this section gets generated/
+#      merged automatically by the harvest command).
+#   4. Subsequent http_get + browser_get calls inject these cookies on
+#      every matching-domain request. Cookies typically expire in 1-3
+#      hours — re-run harvest when scans start hitting 403s again.
+#
+# Each entry: name + value required; everything else has sane defaults.
+# Domain matching is browser-cookie semantics: leading "." matches all
+# subdomains.
+#
+# auth_cookies:
+#   - name: datadome
+#     value: '1d_2HmZ_…'
+#     domain: '.ExamplePay.com'
+#     path: /
+#     secure: true
+#     httpOnly: false
+#     expires: '2026-XX-XXT03:00:00Z'    # ISO-8601, optional
+
+# OPTIONAL — Authenticated-target enablement (Quick 260517-f7a, 2026-XX-XX).
+# Both fields are off by default. Operator opts in per-engagement.
+#
+# captcha_solver: load the NopeCHA Chromium extension so the browser
+#   transparently solves reCAPTCHA / hCaptcha / Cloudflare Turnstile.
+#   Requires one-time install:  ./tools/install-nopecha-extension.sh
+#   The extension dir is gitignored (external/nopecha-extension/).
+#   When set, _BrowserSession switches to headed Chromium via
+#   launch_persistent_context (extensions don't load in headless).
+#   If NOPECHA_KEY env var is set, paid tier; otherwise free tier
+#   (100 solves/day/IP). Auto-solved captchas emit `captcha_solved`
+#   audit events visible at /agent-runs/<job_id>.
+# captcha_solver: nopecha
+
+# allow_human_signup: enable the `human_signup` tool. When a vuln /
+#   exploit agent hits an unsolvable signup gate (captcha, email verify,
+#   SMS 2FA), it pauses and asks the operator (via the dashboard at
+#   /signup-pending) to manually create an account. Entered credentials
+#   persist to ~/.sentinel/<engagement_id>.creds.json (mode 0o600) and
+#   a scope.auth_credentials entry is synthesized in-memory so the
+#   existing login tool can use the new account immediately.
+#   Timeout 30 min; override via SENTINEL_HUMAN_SIGNUP_TIMEOUT_SEC.
+# allow_human_signup: true
+
+# OPTIONAL — Out-of-band callback infrastructure (interactsh-client).
+# Required for detecting BLIND-injection vulnerabilities (blind SSRF /
+# XSS / SQLi / XXE / RCE — entire vuln classes invisible to in-band tools).
+# Default is enabled: the agent's `register_oob_token` tool mints a unique
+# `<token>.oast.fun` subdomain per payload and `check_oob_callback` reads
+# DNS/HTTP/SMTP callbacks against that token. Callbacks hit interact.sh
+# public infra (third-party data flow).
+# For NDA engagements where this third-party flow is unacceptable per SOW,
+# opt out:
+# oob_callbacks: disabled
+
+# OPTIONAL — OAuth test apps (2026-XX-XX). Register operator-OWNED OAuth 2.0
+# apps the agent can install programmatically (via oauth_install_app) to obtain
+# fresh refresh tokens, then test RFC 6749 §10.4 rotation-invalidation with the
+# token-lifecycle verifier (oauth_refresh_replay). This is the capability that
+# would have caught the 2026-XX-XX ExampleChat OAuth-refresh-replay bug autonomously.
+#
+# IMPORTANT: client_id / client_secret live in env vars (referenced by name
+# below) — NEVER paste secrets into this yaml. Export them before launching
+# the scan: `export SLACK_WS1_CLIENT_ID=... SLACK_WS1_CLIENT_SECRET=...`.
+#
+# oauth_test_apps:
+#   - name: ExampleChat-ws1
+#     client_id_env: SLACK_WS1_CLIENT_ID
+#     client_secret_env: SLACK_WS1_CLIENT_SECRET
+#     authorize_url: https://ExampleChat.com/oauth/v2/authorize?client_id={client_id}&scope=channels:read
+#     redirect_uri: https://example.com/ExampleChat-oauth-callback
+#     token_url: https://ExampleChat.com/api/oauth.v2.access
+#     workspace_login_required: false  # set true if the IdP needs operator login first

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ engagement.client }} · Chrome profile · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <div class="text-xs text-fg-muted">
+    <a href="/chrome" class="hover:underline">Chrome profiles</a>
+    <span class="px-1">/</span>
+    <span>{{ engagement.engagement_id|e }}</span>
+  </div>
+  <h1 class="text-3xl font-semibold tracking-tight mt-1">{{ engagement.client|e }}</h1>
+  <p class="text-fg-muted mt-1">
+    Engagement <code class="font-mono">{{ engagement.engagement_id|e }}</code>
+    · authorized by <code class="font-mono">{{ engagement.authorized_by|e }}</code>
+  </p>
+</section>
+
+{% if flash_ok %}
+<div class="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-md text-sm text-emerald-200">
+  <i data-lucide="check-circle-2" class="w-4 h-4 inline-block mr-1"></i>
+  {{ flash_ok|e }}
+</div>
+{% endif %}
+{% if flash_error %}
+<div class="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-md text-sm text-rose-200">
+  <i data-lucide="alert-triangle" class="w-4 h-4 inline-block mr-1"></i>
+  {{ flash_error|e }}
+</div>
+{% endif %}
+
+<div class="grid md:grid-cols-2 gap-4 mb-6">
+  <!-- Status card -->
+  <div class="bg-bg-card border border-line rounded-lg p-5 shadow-card">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted mb-3">Status</h2>
+    <dl class="text-sm space-y-2">
+      <div class="flex justify-between gap-4">
+        <dt class="text-fg-muted">Strategy</dt>
+        <dd>
+          {% if status.strategy_enabled %}
+            <span class="chip chip-ok">{{ status.strategy_value|e }}</span>
+          {% else %}
+            <span class="chip chip-info">unset (uses Playwright spawn)</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-fg-muted">CDP port</dt>
+        <dd class="font-mono">{{ status.cdp_port }}</dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-fg-muted">Chrome listening</dt>
+        <dd>
+          {% if status.chrome_running %}
+            <span class="chip chip-ok">YES · {{ status.chrome_browser_version|e }}</span>
+          {% else %}
+            <span class="chip chip-info">no</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-fg-muted">Profile dir</dt>
+        <dd class="font-mono text-xs text-fg-subtle text-right">{{ status.profile_dir|e }}</dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-fg-muted">Profile exists</dt>
+        <dd>{{ "yes" if status.profile_exists else "no" }}</dd>
+      </div>
+    </dl>
+  </div>
+
+  <!-- Actions card -->
+  <div class="bg-bg-card border border-line rounded-lg p-5 shadow-card">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted mb-3">Actions</h2>
+    <div class="space-y-3">
+      <form method="post" action="/chrome/{{ filename|e }}/bootstrap">
+        <button type="submit"
+                class="w-full px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center justify-center gap-2"
+                {% if status.chrome_running %}disabled title="Chrome already running on this port — clean first"{% endif %}>
+          <i data-lucide="rocket" class="w-4 h-4"></i> Bootstrap (open visible Chrome)
+        </button>
+      </form>
+      <form method="post" action="/chrome/{{ filename|e }}/verify">
+        <button type="submit"
+                class="w-full px-4 py-2 rounded-md bg-bg-elev hover:bg-bg-elev/80 border border-line text-fg text-sm font-semibold flex items-center justify-center gap-2"
+                {% if not status.chrome_running %}disabled title="Bootstrap Chrome first"{% endif %}>
+          <i data-lucide="signal" class="w-4 h-4"></i> Verify session (probe target)
+        </button>
+      </form>
+      <form method="post" action="/chrome/{{ filename|e }}/clean">
+        <button type="submit"
+                class="w-full px-4 py-2 rounded-md bg-bg-elev hover:bg-rose-500/20 border border-line text-fg text-sm font-semibold flex items-center justify-center gap-2"
+                {% if not status.chrome_running %}disabled{% endif %}>
+          <i data-lucide="x-circle" class="w-4 h-4"></i> Shut down Chrome
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Verify result -->
+{% if verify_verdict %}
+<div class="bg-bg-card border border-line rounded-lg p-5 shadow-card mb-6">
+  <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted mb-3">Last verify result</h2>
+  <dl class="text-sm space-y-2">
+    <div class="flex justify-between"><dt class="text-fg-muted">Probe URL</dt>     <dd class="font-mono text-xs">{{ probe_url|e }}</dd></div>
+    <div class="flex justify-between"><dt class="text-fg-muted">HTTP status</dt>   <dd class="font-mono">{{ verify_verdict.status }}</dd></div>
+    <div class="flex justify-between"><dt class="text-fg-muted">Final URL</dt>     <dd class="font-mono text-xs">{{ verify_verdict.final_url|e }}</dd></div>
+    <div class="flex justify-between"><dt class="text-fg-muted">Title</dt>         <dd class="text-xs">{{ verify_verdict.title|e }}</dd></div>
+    <div class="flex justify-between"><dt class="text-fg-muted">Looks authed?</dt> <dd>{{ "✓ YES" if verify_verdict.looks_authenticated else "✗ NO" }}</dd></div>
+    {% if verify_verdict.error %}
+    <div class="flex justify-between"><dt class="text-fg-muted">Error</dt>         <dd class="text-rose-300 text-xs">{{ verify_verdict.error|e }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+{% endif %}
+
+<!-- Workflow help -->
+<div class="bg-bg-card border border-line rounded-lg p-5 shadow-card">
+  <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted mb-3">Operator workflow</h2>
+  <ol class="text-sm text-fg-muted list-decimal pl-5 space-y-2">
+    <li>Click <strong>Bootstrap</strong> — opens your installed Chrome with this engagement's profile.</li>
+    <li>In the opened window, navigate to your target. Solve any DataDome / Cloudflare challenge manually.</li>
+    <li>Sign in to the application. Cookies persist on disk.</li>
+    <li>Close the window when done — profile is retained.</li>
+    <li>Click <strong>Verify session</strong> to confirm Sentinel can attach + reach the target authenticated.</li>
+    <li>Set in <code class="font-mono">{{ filename|e }}</code>:<br>
+      <pre class="font-mono text-xs bg-bg-elev p-2 rounded mt-1">browser_strategy: cdp
+chrome_cdp_port: {{ status.cdp_port }}{% if status.profile_exists %}
+chrome_profile_dir: {{ status.profile_dir|e }}{% endif %}</pre>
+    </li>
+    <li>Run <code class="font-mono">sentinel scan-autonomous --scope {{ filename|e }}</code> — every probe routes through your real Chrome.</li>
+  </ol>
+</div>
+
+{% endblock %}

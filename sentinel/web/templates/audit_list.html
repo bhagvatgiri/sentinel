@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Audit logs · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Audit logs</h1>
+  <p class="text-fg-muted mt-1">Hash-chained record of every authorize/deny decision.</p>
+</section>
+
+{% if logs %}
+  <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-bg-elev/50 border-b border-line">
+        <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+          <th class="px-5 py-2.5 font-semibold">File</th>
+          <th class="px-5 py-2.5 font-semibold text-right">Entries</th>
+          <th class="px-5 py-2.5 font-semibold">Integrity</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for a in logs %}
+          <tr class="hover:bg-bg-elev/40 cursor-pointer" onclick="window.location.href='/audit/{{ a.filename|e }}'">
+            <td class="px-5 py-3 font-mono text-xs">{{ a.filename|e }}</td>
+            <td class="px-5 py-3 text-right">{{ a.get('entries', 0) }}</td>
+            <td class="px-5 py-3">
+              {% if a.get('ok') %}
+                <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Valid</span>
+              {% else %}
+                <span class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> {{ a.get('error') or 'Tampered' }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-bg-card border border-line rounded-lg p-12 text-center text-fg-muted">
+    <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 text-fg-subtle"></i>
+    <p>No audit logs yet — they appear after the first scope is loaded by a scan.</p>
+  </div>
+{% endif %}
+{% endblock %}

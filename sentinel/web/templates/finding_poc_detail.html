@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}PoC bundle · {{ fingerprint }} · Sentinel{% endblock %}
+
+{#
+  Plan 03-06 (VERIFY-07) — per-finding PoC bundle dashboard surface.
+
+  Renders the evidence bundle written to disk by Plan 03-04's execute_poc:
+    workspaces/<engagement_id>/verification/<fingerprint>/
+      ├── poc.sh                    (language = shell or sqlmap)
+      ├── poc.py                    (language = python or playwright)
+      ├── stdout.log
+      ├── stderr.log
+      ├── exit_code.txt
+      ├── screenshot.png            (optional — playwright PoCs only)
+      └── refusal.txt               (only for destructive / out-of-scope
+                                     short-circuits — no poc.* / stdout /
+                                     stderr / exit_code in that case)
+
+  The evidence_state chip in the header is color-coded via the FROZEN
+  mapping from Plan 03-06 <interfaces>:
+    VERIFIED / LIVE_CONFIRMED                   -> chip-ok
+    UNREPRODUCIBLE / LIVE_DISPROVEN             -> chip-low
+    MANUAL_REQUIRED / MANUAL_VERIFICATION_*     -> chip-medium
+    REQUIRES_TEST_CREDENTIALS / TWO_ACCOUNTS    -> chip-info
+    VERIFICATION_ERROR                          -> chip-critical
+    PENDING / RECON_INFERRED                    -> chip-info
+
+  All user-controlled content (PoC command, stdout, stderr, rationale,
+  refusal text) is rendered inside `{{ ... }}` so Jinja autoescape escapes
+  it before reaching the operator's browser. The `<script>alert(1)</script>`
+  XSS regression test (test_finding_poc_detail_escapes_stdout_containing_html)
+  pins this.
+
+  Screenshots are served via the dedicated finding_poc_screenshot route,
+  not base64-encoded into this HTML — see findings.py for the rationale.
+#}
+
+{% block content %}
+<section class="mb-6" data-testid="finding-poc-detail-panel">
+  <!-- Back link to the parent listing -->
+  <a href="/findings/{{ run_filename|e }}"
+     class="text-xs text-fg-muted hover:text-fg flex items-center gap-1 mb-2">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to findings
+  </a>
+
+  <!-- Header: title + evidence_state chip + meta -->
+  <div class="flex items-start gap-3 mb-2">
+    <h1 class="text-3xl font-semibold tracking-tight flex-1">
+      {% if finding %}{{ finding.get('title','(untitled finding)')|e }}{% else %}PoC bundle{% endif %}
+    </h1>
+    <span class="chip chip-{{ chip_class|e }} mt-2">
+      {{ (evidence_state or 'unknown')|e }}
+    </span>
+  </div>
+
+  <p class="text-fg-muted font-mono text-xs">
+    engagement: <span class="text-fg">{{ engagement_id|e }}</span>
+    &nbsp;·&nbsp;
+    fingerprint: <span class="text-fg">{{ fingerprint|e }}</span>
+    &nbsp;·&nbsp;
+    run: <span class="text-fg">{{ run_filename|e }}</span>
+  </p>
+  {% if finding %}
+    <p class="text-fg-muted text-xs mt-1">
+      severity: <span class="text-fg">{{ finding.get('severity','?')|e }}</span>
+      &nbsp;·&nbsp;
+      scanner: <span class="text-fg">{{ finding.get('scanner','?')|e }}</span>
+      {% if finding.get('location') %}
+        &nbsp;·&nbsp;
+        location: <code class="font-mono text-fg">{{ finding.location|e }}</code>
+      {% endif %}
+    </p>
+  {% endif %}
+</section>
+
+{# Plan 04-05 (POC-07): Copy Reproduction Markdown button. Lives in its OWN
+   dedicated section AFTER the header section closes — not crammed inside
+   the header flex container. Only renders when the finding exists AND has
+   a non-empty poc_steps list (empty poc_steps -> nothing worth copying). #}
+{% if finding and finding.get('poc_steps') %}
+<section class="mb-4" data-testid="copy-reproduction-md-section">
+  <button
+    type="button"
+    id="copy-reproduction-md-btn"
+    class="text-xs px-3 py-1.5 rounded-md border border-accent/40 text-accent hover:bg-accent/10 inline-flex items-center gap-1.5"
+    data-testid="copy-reproduction-md-btn"
+    data-markdown-url="{{ url_for('finding_poc_markdown', run_filename=run_filename, fingerprint=fingerprint) }}">
+    <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>
+    Copy Reproduction Markdown
+  </button>
+  <span
+    id="copy-reproduction-md-status"
+    class="text-xs text-fg-muted ml-2 align-middle"
+    data-testid="copy-reproduction-md-status">
+  </span>
+</section>
+{% endif %}
+
+{# Plan 05-05 (NOVEL-07): Novelty panel. Lives in its own dedicated section
+   AFTER the header section closes. The score chip ALWAYS renders so the
+   operator sees where on the novelty scale every finding lands. The
+   nearest_corpus_match + exploit_chain blocks render only when
+   novel_evidence is present (Plan 05-04 RunReport.novel_findings entry
+   for this fingerprint). Legacy run JSONs without `novel_findings` render
+   the empty-state placeholder — NO 500. All string fields from the
+   LLM-validated exploit_chain are rendered via Jinja autoescape — XSS
+   via hostile chain content is blocked. #}
+<section class="mb-6" data-testid="novelty-panel">
+  <h2 class="text-xl font-semibold mb-3 flex items-center gap-2">
+    <i data-lucide="telescope" class="w-5 h-5"></i>
+    Novelty
+    <span class="chip chip-{{ novelty_chip_class|e }}" data-testid="novelty-score-chip">
+      {{ "%.3f"|format(novelty_score|float) }}
+    </span>
+  </h2>
+
+  {% if novel_evidence %}
+    {# nearest_corpus_match — present whenever Plan 05-04's _run_novelty_sweep
+       captured this finding's escalation (the scorer always records the
+       nearest neighbor when it scores a finding). #}
+    {% set match = novel_evidence.get('nearest_corpus_match') %}
+    {% if match %}
+    <div class="bg-bg-card border border-line rounded-lg p-4 text-sm mb-3"
+         data-testid="novelty-nearest-match">
+      <p class="text-fg-muted text-xs mb-1">Nearest corpus match</p>
+      <p class="font-mono text-sm text-fg">{{ match.get('title','(no title)')|e }}</p>
+      <p class="text-xs text-fg-muted">
+        source: <span class="text-fg">{{ match.get('source','?')|e }}</span>
+        &nbsp;·&nbsp;
+        cosine distance: <span class="text-fg">{{ "%.4f"|format(match.get('cosine_distance', 0.0)|float) }}</span>
+        {% if match.get('url') %}
+          &nbsp;·&nbsp;
+          <a class="text-accent hover:underline" href="{{ match.get('url')|e }}" target="_blank" rel="noopener">link</a>
+        {% endif %}
+      </p>
+      {% if match.get('text_preview') %}
+      <pre class="text-xs text-fg-muted mt-2 whitespace-pre-wrap font-mono">{{ match.get('text_preview')|e }}</pre>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# exploit_chain — present only on successful escalation (Plan 05-03
+       validate_exploit_chain accepted the LLM response). All three triplet
+       fields rendered inside <pre> blocks with Jinja autoescape. #}
+    {% set chain = novel_evidence.get('exploit_chain') %}
+    {% if chain %}
+    <div class="bg-bg-card border border-line rounded-lg p-4 text-sm space-y-3"
+         data-testid="novelty-exploit-chain">
+      <p class="text-fg-muted text-xs">Structured exploit chain (LLM-validated)</p>
+      <div>
+        <p class="text-xs text-fg-muted">Input</p>
+        <pre class="text-xs text-fg whitespace-pre-wrap font-mono" data-testid="novelty-exploit-chain-input">{{ chain.get('input','')|e }}</pre>
+      </div>
+      <div>
+        <p class="text-xs text-fg-muted">Behavior</p>
+        <pre class="text-xs text-fg whitespace-pre-wrap font-mono" data-testid="novelty-exploit-chain-behavior">{{ chain.get('behavior','')|e }}</pre>
+      </div>
+      <div>
+        <p class="text-xs text-fg-muted">Impact</p>
+        <pre class="text-xs text-fg whitespace-pre-wrap font-mono" data-testid="novelty-exploit-chain-impact">{{ chain.get('impact','')|e }}</pre>
+      </div>
+      {% if novel_evidence.get('verifier_evidence_path') %}
+      <p class="text-xs text-fg-muted">
+        Phase 3 bundle: <code class="font-mono">{{ novel_evidence.get('verifier_evidence_path')|e }}</code>
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+  {% else %}
+    <p class="text-xs text-fg-muted" data-testid="novelty-no-evidence">
+      No novelty escalation recorded for this finding. (Either the score
+      was below the configured threshold, the novelty index was not built,
+      or the run pre-dates Phase 5.)
+    </p>
+  {% endif %}
+</section>
+
+{% if bundle.bundle_missing %}
+  <!-- No PoC bundle yet — friendly message, NOT a 404. -->
+  <section class="bg-bg-card border border-line rounded-lg p-6 text-sm">
+    <div class="flex items-center gap-2 mb-2 text-fg">
+      <i data-lucide="info" class="w-4 h-4 text-fg-muted"></i>
+      <span class="font-semibold">No PoC bundle for this finding</span>
+    </div>
+    <p class="text-fg-muted leading-relaxed">
+      The verify-phase did not produce an evidence bundle at
+      <code class="font-mono text-xs">{{ bundle_dir|e }}</code>.
+      This usually means one of:
+    </p>
+    <ul class="list-disc pl-5 text-xs text-fg-muted space-y-1 mt-2">
+      <li>The verify-phase-03 pipeline phase was skipped for this run (`--skip-phases verify-phase-03` or `cfg.verify_after_exploit=False`).</li>
+      <li>The finding pre-dates Phase 3 verification machinery (older run JSON).</li>
+      <li>The verify phase ran but the agent did not emit a parseable PoC block for this finding.</li>
+    </ul>
+    <p class="text-fg-muted text-xs mt-3">
+      bundle_missing: True
+    </p>
+  </section>
+
+{% elif bundle.refusal_txt %}
+  <!-- Destructive / out-of-scope short-circuit path: refusal.txt only. -->
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4">
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+      <i data-lucide="shield-off" class="w-3.5 h-3.5"></i>
+      Sandbox refused to execute this PoC
+    </h2>
+    <pre class="bg-bg border border-line rounded-md p-3 text-xs font-mono text-fg whitespace-pre-wrap">{{ bundle.refusal_txt|e }}</pre>
+    <p class="text-xs text-fg-muted mt-3">
+      The destructive-PoC classifier (Plan 03-03) or scope-gating layer
+      (Plan 03-04) short-circuited execution. The four-layer-defense
+      sandbox contract is that destructive verbs (DROP TABLE, rm -rf,
+      pickle.loads, etc.) and out-of-scope URLs NEVER reach subprocess.run
+      — operators verify manually with explicit authorization.
+    </p>
+  </section>
+
+{% else %}
+  <!-- Standard layout: command + output + rationale + screenshot. -->
+
+  <!-- Section 1: PoC command -->
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4">
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+      <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+      PoC command
+      {% if bundle.language %}
+        <span class="font-normal normal-case tracking-normal text-fg-subtle">
+          ({{ bundle.language|e }})
+        </span>
+      {% endif %}
+    </h2>
+    {% set command = bundle.poc_sh or bundle.poc_py or '(no PoC file in bundle)' %}
+    <pre class="bg-bg border border-line rounded-md p-3 text-xs font-mono text-fg overflow-x-auto"><code class="language-{{ bundle.language or 'shell' }}">{{ command|e }}</code></pre>
+  </section>
+
+  <!-- Section 2: Output (stdout + stderr + exit_code) -->
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4">
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+      <i data-lucide="logs" class="w-3.5 h-3.5"></i>
+      Output
+    </h2>
+    <p class="text-xs text-fg mb-2">
+      Exit code:
+      <code class="font-mono">{{ (bundle.exit_code or '?')|e }}</code>
+    </p>
+
+    <details class="mb-2" open>
+      <summary class="cursor-pointer text-xs font-medium text-fg-muted hover:text-fg">
+        stdout ({% if bundle.stdout_log %}{{ bundle.stdout_log|length }} chars{% else %}empty{% endif %})
+      </summary>
+      <pre class="bg-bg border border-line rounded-md p-3 text-xs font-mono text-fg whitespace-pre-wrap mt-1 overflow-x-auto">{{ (bundle.stdout_log or '(empty)')|e }}</pre>
+    </details>
+
+    <details>
+      <summary class="cursor-pointer text-xs font-medium text-fg-muted hover:text-fg">
+        stderr ({% if bundle.stderr_log %}{{ bundle.stderr_log|length }} chars{% else %}empty{% endif %})
+      </summary>
+      <pre class="bg-bg border border-line rounded-md p-3 text-xs font-mono text-fg-muted whitespace-pre-wrap mt-1 overflow-x-auto">{{ (bundle.stderr_log or '(empty)')|e }}</pre>
+    </details>
+  </section>
+
+  <!-- Section 3: Rationale (from audit log poc_run_completed event) -->
+  {% if audit %}
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4">
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+      <i data-lucide="message-square-text" class="w-3.5 h-3.5"></i>
+      Audit-log rationale
+    </h2>
+    {% if audit.rationale %}
+      <p class="text-sm text-fg leading-relaxed">{{ audit.rationale|e }}</p>
+    {% endif %}
+    <ul class="text-xs text-fg-muted space-y-1 mt-3">
+      {% if audit.duration_sec is not none %}
+        <li>duration: <code class="font-mono">{{ audit.duration_sec }}s</code></li>
+      {% endif %}
+      {% if audit.expected_output_matched is not none %}
+        <li>expected_output_matched: <code class="font-mono">{{ audit.expected_output_matched }}</code></li>
+      {% endif %}
+      {% if audit.destructive_pattern %}
+        <li>destructive_pattern: <code class="font-mono">{{ audit.destructive_pattern|e }}</code></li>
+      {% endif %}
+      {% if audit.out_of_scope_url %}
+        <li>out_of_scope_url: <code class="font-mono">{{ audit.out_of_scope_url|e }}</code></li>
+      {% endif %}
+    </ul>
+  </section>
+  {% else %}
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4 text-xs text-fg-muted">
+    <i data-lucide="message-square-off" class="w-3.5 h-3.5 inline"></i>
+    No audit-log rationale found for this fingerprint
+    (audit log absent or no matching <code class="font-mono">poc_run_completed</code> entry).
+  </section>
+  {% endif %}
+
+  <!-- Section 4: Screenshot (only when present — referenced via dedicated route) -->
+  {% if bundle.has_screenshot %}
+  <section class="bg-bg-card border border-line rounded-lg p-4 mb-4">
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+      <i data-lucide="image" class="w-3.5 h-3.5"></i>
+      Screenshot
+    </h2>
+    <img
+      src="{{ url_for('finding_poc_screenshot', run_filename=run_filename, fingerprint=fingerprint) }}"
+      alt="PoC screenshot"
+      loading="lazy"
+      class="max-w-full border border-line rounded-md" />
+    <p class="text-xs text-fg-muted mt-2">
+      Served via dedicated route
+      <code class="font-mono">/findings/{{ run_filename|e }}/{{ fingerprint|e }}/screenshot.png</code>
+      (FileResponse, image/png) — not base64-embedded so browser cache works.
+    </p>
+  </section>
+  {% endif %}
+
+{% endif %}
+
+<!-- Footer-strip with bundle path for operator reference -->
+<section class="text-xxs text-fg-subtle font-mono mt-6">
+  bundle path: <span class="text-fg-muted">{{ bundle_dir|e }}</span>
+</section>
+
+{# Plan 04-05 (POC-07): vanilla-JS handler for the Copy Reproduction
+   Markdown button. Fetches /findings/<run>/<fp>/markdown, calls
+   navigator.clipboard.writeText, and updates the status indicator.
+   No framework — matches the rest of the dashboard's vanilla-JS
+   convention. The IIFE keeps the helper scoped to this template. #}
+<script>
+  (function () {
+    var btn = document.getElementById('copy-reproduction-md-btn');
+    var status = document.getElementById('copy-reproduction-md-status');
+    if (!btn || !status) { return; }
+    btn.addEventListener('click', async function () {
+      var url = btn.dataset.markdownUrl;
+      status.textContent = 'Fetching...';
+      try {
+        var r = await fetch(url, { headers: { 'Accept': 'text/markdown' } });
+        if (!r.ok) {
+          status.textContent = 'Fetch failed (' + r.status + ')';
+          return;
+        }
+        var text = await r.text();
+        await navigator.clipboard.writeText(text);
+        status.textContent = 'Copied to clipboard';
+      } catch (err) {
+        status.textContent = 'Clipboard error: ' + (err && err.message ? err.message : err);
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+{% if error %}
+  <div class="bg-bg border border-sev-critical/40 rounded-md p-3 text-sm text-sev-critical">{{ error|e }}</div>
+{% elif results %}
+  <div class="text-xs text-fg-muted mb-2">{{ results|length }} chunks for "<span class="text-fg">{{ query|e }}</span>"</div>
+  <ul class="space-y-2">
+    {% for r in results %}
+      <li class="border border-line rounded-md p-3 hover:border-line-hover">
+        <div class="flex items-baseline gap-2 mb-1">
+          <span class="text-sm font-semibold">{{ r.title|e }}</span>
+          <span class="chip chip-info">{{ r.source|e }}</span>
+          <span class="ml-auto text-xxs font-mono text-fg-subtle">d={{ '%.3f'|format(r.distance) }}</span>
+        </div>
+        <p class="text-xs text-fg-muted leading-relaxed">{{ (r.text[:400] + '…') if r.text|length > 400 else r.text }}</p>
+        {% if r.url %}<a href="{{ r.url|e }}" target="_blank" rel="noopener" class="inline-block mt-1 text-xs text-accent hover:underline">{{ r.url|e }}</a>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="text-sm text-fg-muted">No results.</p>
+{% endif %}

@@ -1,0 +1,169 @@
+# =============================================================================
+# Sentinel .gitignore — strict NDA-aware ruleset
+# =============================================================================
+# Authored 2026-05-14 during /gsd-execute-phase 1 init. Default = exclude. Add
+# specific allow-list rules below only after confirming the path is non-sensitive.
+# When in doubt, leave it ignored — a leaked client artifact is irreversible.
+
+# -----------------------------------------------------------------------------
+# NDA-protected client engagement data (HARD RULES — never relax these)
+# -----------------------------------------------------------------------------
+engagements/
+runs/
+reports/
+deliverables/
+workspaces/
+library/
+.audit-*.jsonl
+.audit-*.jsonl.*
+*.sow.pdf
+*-sow.pdf
+*-SOW.pdf
+SOW-*.pdf
+
+# -----------------------------------------------------------------------------
+# Secrets / credentials
+# -----------------------------------------------------------------------------
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+*credentials*
+*secret*
+*.htpasswd
+*api-key*
+*token*.txt
+notify.yaml
+.sentinel/
+# Quick 260517-f7a (2026-05-17): .sentinel/ above already covers
+# .sentinel/<engagement_id>.creds.json (the human-signup creds artifact).
+# Listed here as a reminder to future operators reading the file —
+# do NOT remove the .sentinel/ rule above, it is the legal NDA boundary.
+# .sentinel/*.creds.json   # covered by .sentinel/ — kept as documentation anchor
+
+# -----------------------------------------------------------------------------
+# Operator-installed vendor extensions (Quick 260517-f7a, 2026-05-17)
+# -----------------------------------------------------------------------------
+# external/ holds third-party browser extensions installed via
+# tools/install-nopecha-extension.sh (and any future vendor installers).
+# Never check in — operator-managed, may have license restrictions,
+# typically large binary blobs.
+external/
+
+# -----------------------------------------------------------------------------
+# Python virtualenvs + bytecode + build artifacts
+# -----------------------------------------------------------------------------
+.venv/
+.venv-*/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -----------------------------------------------------------------------------
+# Test + coverage artifacts
+# -----------------------------------------------------------------------------
+.pytest_cache/
+pytest-cache-files-*/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.cache/
+coverage.xml
+*.cover
+.hypothesis/
+
+# -----------------------------------------------------------------------------
+# Model adapters + training artifacts (large, often contain engagement data)
+# -----------------------------------------------------------------------------
+adapters-*/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+*.ckpt
+mlx-*.log
+mlx-train*.log
+*.npz
+checkpoints/
+wandb/
+mlruns/
+
+# -----------------------------------------------------------------------------
+# Logs + temporary state
+# -----------------------------------------------------------------------------
+logs/
+*.log
+*.log.*
+*.pid
+tmp/
+.tmp/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# OS / IDE clutter
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# -----------------------------------------------------------------------------
+# Streamlit / FastAPI runtime state
+# -----------------------------------------------------------------------------
+.streamlit/secrets.toml
+
+# -----------------------------------------------------------------------------
+# GSD planning artifacts — commit_docs: false per project decision
+# -----------------------------------------------------------------------------
+.planning/
+
+# -----------------------------------------------------------------------------
+# Local-machine context docs (mention engagement/client data inline)
+# -----------------------------------------------------------------------------
+CURRENT_STATE.md
+HANDOFF.md
+HANDOFF-*.md
+CLOUD-SCAN-RESULT.md
+autonomous-training-results.md
+*.handoff.md
+
+# -----------------------------------------------------------------------------
+# Generated vault content + corpus state
+# -----------------------------------------------------------------------------
+# vault-seed/Knowledge/ is INTENTIONALLY tracked (3,778 pre-generated notes are
+# part of the repo per CLAUDE.md). Anything under vault-seed/ that's specific to
+# an engagement should live under engagements/ instead.
+
+# -----------------------------------------------------------------------------
+# Misc training tools that may pull engagement data
+# -----------------------------------------------------------------------------
+*.qwen-eval.json
+*.candidate.json
+runs-training-*.md
+
+# Allow public template/doc files (override broad rules above)
+!.env.example
+!scope.example.yaml
+!README.md
+!LICENSE

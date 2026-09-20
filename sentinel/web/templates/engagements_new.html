@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}New engagement · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <a href="/engagements" class="text-xs text-fg-muted hover:text-fg flex items-center gap-1 mb-2">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All engagements
+  </a>
+  <h1 class="text-3xl font-semibold tracking-tight">New engagement</h1>
+  <p class="text-fg-muted mt-1">Generate a scope YAML from a form. Stored in <code class="font-mono text-fg-subtle">{{ cfg.scopes_dir|e }}</code>.</p>
+</section>
+
+<form method="POST" action="/engagements" class="bg-bg-card border border-line rounded-lg shadow-card p-6 space-y-5 max-w-3xl">
+  <div>
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Program template</label>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {% for tpl in templates %}
+        <label class="flex items-start gap-2 p-2.5 bg-bg-elev border border-line rounded-md cursor-pointer hover:border-accent">
+          <input type="radio" name="template" value="{{ tpl.name|e }}"
+                 {% if loop.first %}checked{% endif %}
+                 class="mt-0.5 accent-accent" />
+          <div>
+            <div class="text-sm font-semibold">{{ tpl.display|e }}</div>
+            <div class="text-xxs text-fg-muted">{{ tpl.rate_limit_rps }} req/sec</div>
+            {% if tpl.research_header_name %}
+              <div class="text-xxs text-fg-subtle font-mono">{{ tpl.research_header_name|e }}</div>
+            {% endif %}
+          </div>
+        </label>
+      {% endfor %}
+    </div>
+    <p class="text-xxs text-fg-subtle mt-1.5">
+      Templates set sane per-program defaults (rate limit, researcher header). You can override below.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Client *</label>
+      <input type="text" name="client" required placeholder="acme-corp" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Engagement ID *</label>
+      <input type="text" name="engagement_id" required value="{{ default_engagement_id|e }}" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Authorized by *</label>
+      <input type="text" name="authorized_by" required placeholder="jane.doe@acme-corp.com" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Authorization doc <span class="text-fg-subtle">(optional)</span></label>
+      <input type="text" name="authorization_doc" placeholder="./SOW-signed.pdf" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Valid from</label>
+      <input type="date" name="valid_from" value="{{ today }}" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Valid until</label>
+      <input type="date" name="valid_until" value="{{ default_until }}" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    </div>
+  </div>
+
+  <div>
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Targets <span class="text-fg-subtle font-normal normal-case tracking-normal">(at least one)</span></h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xxs text-fg-muted mb-1">Repos (one per line)</label>
+        <textarea name="repos" rows="3" placeholder="github.com/acme-corp/api" class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono"></textarea>
+      </div>
+      <div>
+        <label class="block text-xxs text-fg-muted mb-1">Domains (one per line)</label>
+        <textarea name="domains" rows="3" placeholder="*.staging.acme.com&#10;api.dev.acme.com" class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono"></textarea>
+      </div>
+      <div>
+        <label class="block text-xxs text-fg-muted mb-1">IP ranges (CIDR)</label>
+        <textarea name="ips" rows="3" placeholder="10.0.50.0/24" class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Out of scope <span class="text-fg-subtle font-normal normal-case tracking-normal">(takes precedence over targets; one per line)</span></label>
+    <textarea name="out_of_scope" rows="2" placeholder="prod.acme.com&#10;*.customer-data.acme.com" class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono"></textarea>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Researcher handle <span class="text-fg-subtle font-normal normal-case tracking-normal">(populates the platform research header)</span></label>
+      <input type="text" name="research_handle" placeholder="my-h1-handle" class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono" />
+    </div>
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Rate limit override (req/sec)</label>
+      <input type="number" name="rate_limit_rps" min="0" max="100" value="0" placeholder="0 = use template default"
+             class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm" />
+    </div>
+  </div>
+
+  <div class="pt-2">
+    <button type="submit" class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center gap-2 shadow-glow">
+      <i data-lucide="file-plus" class="w-4 h-4"></i> Create scope file
+    </button>
+  </div>
+</form>
+{% endblock %}

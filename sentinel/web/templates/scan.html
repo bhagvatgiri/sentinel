@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% import "_components/severity_chip.html" as chips %}
+{% block title %}Scan · Sentinel{% endblock %}
+
+{% block content %}
+
+<section class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Scan launcher</h1>
+    <p class="text-fg-muted mt-1">Run any Sentinel scanner against an in-scope target.</p>
+  </div>
+  {% if active_jobs %}
+    <span class="chip chip-low"><i data-lucide="activity" class="w-3 h-3"></i> {{ active_jobs|length }} active</span>
+  {% endif %}
+</section>
+
+<!-- Engagement + mode picker (outside the form so they trigger reloads) -->
+<section class="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-3">
+  <!-- Engagement -->
+  <div class="lg:col-span-2">
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Engagement</label>
+    <select onchange="window.location.href='/scan?eng=' + encodeURIComponent(this.value) + '&mode={{ selected_mode }}'"
+            class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent">
+      {% for e in engagements %}
+        <option value="{{ e.filename }}" {% if selected_engagement and e.filename == selected_engagement.filename %}selected{% endif %}>
+          {{ e.client|e }} — {{ e.engagement_id|e }} ({{ e.filename }})
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Mode -->
+  <div>
+    <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Mode</label>
+    <select onchange="window.location.href='/scan?eng={{ selected_engagement.filename if selected_engagement else '' }}&mode=' + encodeURIComponent(this.value)"
+            class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent">
+      {% for m, desc in modes %}
+        <option value="{{ m }}" {% if m == selected_mode %}selected{% endif %}>{{ m }}{% if m in destructive_modes %} ⚠{% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+</section>
+
+<!-- Scope summary -->
+{% if selected_engagement %}
+  <section class="mb-6 px-4 py-3 bg-bg-card border border-line rounded-lg flex items-center gap-4 text-xs text-fg-muted">
+    <i data-lucide="folder" class="w-4 h-4 text-accent"></i>
+    <span><span class="text-fg font-medium">{{ selected_engagement.filename|e }}</span></span>
+    <span>{{ scope_summary.repos }} repos · {{ scope_summary.domains }} domains · {{ scope_summary.ips }} IP ranges</span>
+    <span>Valid {{ selected_engagement.valid_from }} → {{ selected_engagement.valid_until }}</span>
+    <span class="ml-auto text-fg-subtle">{{ (modes|selectattr('0','equalto',selected_mode)|first)[1] if (modes|selectattr('0','equalto',selected_mode)|list) else '' }}</span>
+  </section>
+{% endif %}
+
+<!-- ─── Form ─── -->
+<form hx-post="/scan/run"
+      hx-target="#scan-result"
+      hx-swap="innerHTML"
+      hx-disabled-elt="button[type='submit']"
+      class="bg-bg-card border border-line rounded-lg shadow-card p-6 space-y-5">
+
+  <input type="hidden" name="engagement" value="{{ selected_engagement.filename if selected_engagement else '' }}" />
+  <input type="hidden" name="mode" value="{{ selected_mode }}" />
+
+  {% if selected_mode in topic_modes %}
+    <!-- Topic input (brain-grow only) -->
+    <div>
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">Topic</label>
+      <input type="text" name="topic"
+             placeholder='e.g., "SSRF bypass techniques 2024-2025" or "GraphQL authorization vulnerabilities"'
+             class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+      <div class="text-xxs text-fg-muted mt-1.5">
+        The Brain agent searches the web on this topic, dedupes against the existing corpus, and ingests new chunks.
+        Engagement scope is not required (corpus growth is not scope-bound).
+      </div>
+    </div>
+  {% elif selected_mode in no_target_modes %}
+    <!-- No target input — scope yaml bounds the run -->
+    <div class="px-3 py-2 rounded-md bg-bg-elev/50 border border-line text-xs text-fg-muted">
+      <i data-lucide="info" class="w-3 h-3 inline"></i>
+      No target field for <code class="font-mono text-fg">{{ selected_mode }}</code> — the engagement scope itself bounds the run.
+    </div>
+  {% else %}
+    <!-- Target (URL / path) -->
+    <div id="scan-target-row">
+      <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
+        {% if selected_mode in file_target_modes %}File path{% else %}Target{% endif %}
+      </label>
+      <input type="text" name="target" value="{{ target|e }}"
+             placeholder="{% if selected_mode == 'scan-apk' %}Path to a .apk file (scope-gated as artifact){% elif selected_mode == 'scan-dfir' %}Path to a pcap or log file inside the workspace{% else %}Path or URL — auto-filled from scope when available{% endif %}"
+             class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+    </div>
+  {% endif %}
+
+  <!-- Advanced -->
+  <details class="group rounded-md border border-line">
+    <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5 group-open:rotate-90 transition-transform"></i> Advanced
+    </summary>
+    <div class="p-3 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-line">
+      {% if selected_mode in ('scan-repo','scan-deps','scan-active','scan-full') %}
+        <div>
+          <label class="block text-xxs text-fg-muted mb-1">--repo-url</label>
+          <input type="text" name="repo_url" placeholder="github.com/owner/name"
+                 class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+        </div>
+      {% endif %}
+      {% if selected_mode == 'scan-autonomous' %}
+        <div class="md:col-span-2">
+          <label class="block text-xxs text-fg-muted mb-1">--repo-path (optional, enables pre-recon SAST)</label>
+          <input type="text" name="repo_path" placeholder="/path/to/source/repo on this machine"
+                 class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+        </div>
+      {% endif %}
+      {% if selected_mode in ('scan-live','scan-web','scan-recon','scan-active','scan-full') %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="deep" value="true" class="accent-accent" />
+          <span>--deep (broader template/wordlist coverage; longer)</span>
+        </label>
+      {% endif %}
+      {% if selected_mode not in topic_modes %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="use_vault" value="true" checked class="accent-accent" />
+          <span>Write findings to vault</span>
+        </label>
+      {% endif %}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="use_corpus" value="true"
+               {% if selected_mode == 'scan-autonomous' %}checked{% endif %}
+               class="accent-accent" />
+        <span>
+          {% if selected_mode == 'scan-autonomous' %}
+            Use corpus (enables corpus_search + brain queue)
+          {% else %}
+            Use corpus for RAG triage
+          {% endif %}
+        </span>
+      </label>
+      {% if selected_mode == 'scan-autonomous' %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="auto_brain" value="true" class="accent-accent" />
+          <span>--auto-brain (brain grows in background as agents work)</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="resume" value="true" class="accent-accent" />
+          <span>--resume (skip phases that already committed in <code class="text-xxs font-mono">.completed_phases.json</code>)</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="all_scope_targets" value="true" class="accent-accent"
+                 onchange="document.getElementById('scan-target-row').classList.toggle('opacity-40', this.checked); document.querySelector('input[name=target]').disabled = this.checked;" />
+          <span>--all-scope-targets (fan out across every concrete domain in scope; target field ignored)</span>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xxs text-fg-muted mb-1">--max-concurrent (only with --all-scope-targets)</label>
+            <input type="number" name="max_concurrent" value="2" min="1" max="8" step="1"
+                   class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+          </div>
+        </div>
+      {% endif %}
+      {% if selected_mode not in ('agent','scan-autonomous','brain-grow') %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="no_llm" value="true" class="accent-accent" />
+          <span>Disable LLM triage</span>
+        </label>
+      {% endif %}
+      {% if selected_mode in agent_modes or selected_mode in topic_modes %}
+        <div>
+          <label class="block text-xxs text-fg-muted mb-1">
+            {% if selected_mode == 'scan-autonomous' %}--max-budget-per-phase-usd{% else %}--max-budget-usd{% endif %}
+          </label>
+          <input type="number" name="max_budget_usd" value="{% if selected_mode == 'scan-autonomous' %}6.5{% else %}5.0{% endif %}" step="any" min="0.10"
+                 class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+        </div>
+      {% endif %}
+      {% if selected_mode == 'scan-autonomous' %}
+        <!-- Phase A 2026-XX-XX: depth knobs for H1 deeper-diving -->
+        <div class="mt-3 p-3 rounded-md bg-bg-elev/50 border border-line">
+          <div class="text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-2 flex items-center gap-1.5">
+            <i data-lucide="gauge" class="w-3 h-3"></i>
+            Advanced budget &amp; depth
+            <span class="ml-auto flex gap-1">
+              <button type="button" id="preset-h1-deep"
+                      class="px-2 py-0.5 rounded bg-accent/20 hover:bg-accent/30 text-xxs font-mono transition-colors"
+                      onclick="applyPreset('h1-deep')">H1 deep ($100)</button>
+              <button type="button" id="preset-fast-triage"
+                      class="px-2 py-0.5 rounded bg-bg-card hover:bg-bg-elev border border-line text-xxs font-mono transition-colors"
+                      onclick="applyPreset('fast-triage')">Fast triage ($30)</button>
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--max-budget-per-scan-usd</label>
+              <input type="number" name="max_budget_per_scan_usd" value="100" step="any" min="1.0"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--recon-max-pages</label>
+              <input type="number" name="recon_max_pages" value="40" min="5" step="1"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--recon-max-turns</label>
+              <input type="number" name="recon_max_turns" value="80" min="10" step="1"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--vuln-max-pages</label>
+              <input type="number" name="vuln_max_pages" value="30" min="5" step="1"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--vuln-max-turns</label>
+              <input type="number" name="vuln_max_turns" value="70" min="10" step="1"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xxs text-fg-muted mb-1">--exploit-max-turns</label>
+              <input type="number" name="exploit_max_turns" value="110" min="10" step="1"
+                     class="w-full bg-bg-elev border border-line rounded-md px-2.5 py-1.5 text-xs font-mono" />
+            </div>
+          </div>
+          <p class="text-xxs text-fg-subtle mt-2">
+            Per-scan ceiling is a hard kill — pipeline gracefully skips
+            remaining phases. Per-phase cap (above) prevents one runaway
+            phase from blowing past the scan total.
+          </p>
+        </div>
+        <script>
+          function applyPreset(name) {
+            const f = document.querySelector('form[hx-post="/scan/run"]') || document.querySelector('form');
+            const v = name === 'h1-deep'
+              ? {max_budget_usd: 6.5, max_budget_per_scan_usd: 100, recon_max_pages: 40, recon_max_turns: 80, vuln_max_pages: 30, vuln_max_turns: 70, exploit_max_turns: 110}
+              : {max_budget_usd: 3.0, max_budget_per_scan_usd: 30, recon_max_pages: 20, recon_max_turns: 40, vuln_max_pages: 15, vuln_max_turns: 35, exploit_max_turns: 50};
+            for (const k of Object.keys(v)) {
+              const el = f.querySelector(`input[name=${k}]`);
+              if (el) el.value = v[k];
+            }
+          }
+        </script>
+      {% endif %}
+    </div>
+  </details>
+
+  <!-- Destructive-mode confirmation -->
+  {% if selected_mode in destructive_modes %}
+    <div class="p-3 rounded-md border border-sev-critical/40 bg-sev-critical/5">
+      <div class="text-xs font-semibold text-sev-critical mb-1.5 flex items-center gap-1.5">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+        Destructive mode — type "confirm" to run
+      </div>
+      <input type="text" name="confirm_token"
+             placeholder="confirm"
+             class="w-full bg-bg-elev border border-sev-critical/30 rounded-md px-3 py-2 text-sm font-mono" />
+      <div class="text-xxs text-fg-muted mt-1.5">{{ selected_mode }} runs active exploitation tooling — Shannon/wapiti/ZAP active scan. Modifies target state.</div>
+    </div>
+  {% endif %}
+
+  <!-- Submit -->
+  <div class="flex items-center gap-3 pt-1">
+    <button type="submit"
+            class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors flex items-center gap-2 shadow-glow disabled:opacity-50 disabled:cursor-not-allowed">
+      <i data-lucide="play" class="w-4 h-4"></i>
+      Run scan
+      <span class="htmx-indicator"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i></span>
+    </button>
+    <span class="text-xxs text-fg-subtle">scope-gated · audit-logged</span>
+  </div>
+</form>
+
+<!-- ─── Result pane (HTMX target) ─── -->
+<section id="scan-result" class="mt-6"></section>
+
+<!-- ─── Active runs (in-memory jobs + orphan agent runs) ─── -->
+{% if active_runs %}
+<section class="mt-8">
+  <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-3 flex items-center gap-2">
+    <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+    Active runs
+    <span class="text-fg-subtle font-normal normal-case tracking-normal">{{ active_runs|length }}</span>
+  </h2>
+  <div class="space-y-3">
+    {% for r in active_runs %}
+      {% if r.source == 'in-memory' %}
+        {# Full live-status partial — has Stop button + log tail. #}
+        <div hx-get="/scan/status/{{ r.job_id }}" hx-trigger="load" hx-swap="outerHTML"></div>
+      {% else %}
+        {# Orphan external run — no Popen, just a card linking to the dashboard. #}
+        <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 flex items-center gap-3">
+          <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Running (orphan)</span>
+          <span class="font-mono text-xs">{{ r.job_id|e }}</span>
+          <span class="text-xs text-fg-muted">{{ r.argv_summary|e }}</span>
+          <span class="text-xs text-fg-subtle ml-auto">elapsed {{ r.elapsed_sec }}s</span>
+          {% if r.dashboard_url %}
+            <a href="{{ r.dashboard_url }}" target="_blank"
+               class="text-xs text-accent hover:text-accent-hover font-semibold flex items-center gap-1">
+              <i data-lucide="brain" class="w-3 h-3"></i> Dashboard →
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if active_runs|selectattr('source','equalto','external')|list %}
+    <p class="text-xxs text-fg-subtle mt-2">
+      <i data-lucide="info" class="w-3 h-3 inline"></i>
+      "Orphan" runs are subprocesses that survived a FastAPI restart. The Stop button isn't available (we don't hold the PID), but the dashboard tracks them via their event log. Use <code>kill &lt;pid&gt;</code> from a terminal if you need to stop one.
+    </p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}

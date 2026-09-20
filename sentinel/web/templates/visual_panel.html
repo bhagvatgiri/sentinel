@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}visual triage — {{ job_id }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      Visual Triage
+      <span class="text-fg-muted font-mono text-sm ml-2">job {{ job_id }}</span>
+    </h1>
+    <p class="text-fg-muted text-xs mt-1">
+      Subdomain screenshots from <code class="font-mono">gowitness</code>
+      paired with <code class="font-mono">llava:13b</code> (local Ollama
+      vision model) page descriptions. Use this view to visually prioritize
+      which subdomains warrant deeper inspection — operator-eyeball one grid
+      instead of curl-ing every host.
+    </p>
+  </div>
+  <a href="/agent-runs/{{ job_id }}" class="text-xs text-fg-muted hover:text-fg">← run detail</a>
+</section>
+
+<section data-testid="visual-panel">
+  {% if not captures %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-6 text-sm text-fg-muted">
+      No screenshots captured for this job yet.
+      The recon agent has not invoked <code class="font-mono">visual_recon</code>,
+      or all attempts were refused by scope.
+    </div>
+  {% else %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <h2 class="text-lg font-semibold tracking-tight mb-3">
+        Captures
+        <span class="text-fg-muted text-xs font-mono ml-1">({{ captures|length }})</span>
+      </h2>
+      <div class="visual-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;">
+        {% for path, c in captures %}
+          <div class="visual-card border border-line rounded p-3">
+            <a href="{{ path|e }}">
+              <img src="{{ path|e }}" alt="{{ c.url|e }}"
+                   style="max-width:100%;height:auto;border:1px solid var(--line,#444);" />
+            </a>
+            <p class="mt-2 text-sm font-mono break-all">{{ c.url|e }}</p>
+            {% if c.description %}
+              <p class="text-sm text-fg-muted mt-2">{{ c.description|e }}</p>
+            {% else %}
+              <p class="text-xs text-fg-muted mt-2 italic">(no llava triage yet)</p>
+            {% endif %}
+            <p class="text-xs text-fg-muted mt-1 font-mono">{{ c.ts }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

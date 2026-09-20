@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Agent runs · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Agent runs</h1>
+  <p class="text-fg-muted mt-1">Every <code>scan-autonomous</code> / <code>agent</code> / <code>brain-grow</code> run with a structured event log. Newest first.</p>
+</section>
+
+{% if not runs %}
+  <div class="bg-bg-card border border-line rounded-lg p-6 text-center text-fg-muted">
+    <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-fg-subtle"></i>
+    <p>No event logs yet. Fire a <code>sentinel scan-autonomous</code> or <code>sentinel brain-grow</code> run and the dashboard will pick it up automatically.</p>
+  </div>
+{% else %}
+  <table class="w-full bg-bg-card border border-line rounded-lg overflow-hidden text-sm">
+    <thead class="bg-bg-elev/50 border-b border-line text-xxs uppercase tracking-wider text-fg-muted">
+      <tr class="text-left">
+        <th class="px-5 py-2.5 font-semibold">Job ID</th>
+        <th class="px-5 py-2.5 font-semibold">Status</th>
+        <th class="px-5 py-2.5 font-semibold">Last activity</th>
+        <th class="px-5 py-2.5 font-semibold">Size</th>
+        <th class="px-5 py-2.5 font-semibold"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line">
+      {% for r in runs %}
+        <tr class="hover:bg-bg-elev/40">
+          <td class="px-5 py-2.5 font-mono text-xs">{{ r.job_id|e }}</td>
+          <td class="px-5 py-2.5">
+            {% if r.status == 'completed' %}
+              <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Completed</span>
+            {% elif r.status == 'running' %}
+              <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Running</span>
+            {% elif r.status == 'failed' %}
+              <span class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> Failed</span>
+            {% elif r.status == 'stalled' %}
+              <span class="chip chip-medium"><i data-lucide="pause-circle" class="w-3 h-3"></i> Stalled</span>
+            {% elif r.status == 'aborted' %}
+              <span class="chip chip-critical"><i data-lucide="octagon-x" class="w-3 h-3"></i> Aborted</span>
+            {% elif r.status == 'initializing' %}
+              <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Initializing</span>
+            {% elif r.status == 'unknown' %}
+              <span class="chip chip-info"><i data-lucide="circle-help" class="w-3 h-3"></i> Pipeline not yet reported</span>
+            {% else %}
+              <span class="chip chip-info">{{ r.status|capitalize }}</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-2.5 text-xs font-mono text-fg-muted">{{ r.mtime|round(0)|int }}</td>
+          <td class="px-5 py-2.5 text-xs font-mono text-fg-muted">{{ (r.size_bytes/1024)|round(1) }} KB</td>
+          <td class="px-5 py-2.5 text-right whitespace-nowrap">
+            <a href="/agent-runs/{{ r.job_id|e }}" class="text-accent hover:text-accent-hover text-xs font-semibold">Open →</a>
+            <button
+              hx-delete="/agent-runs/{{ r.job_id|e }}"
+              hx-confirm="Delete the dashboard view for run '{{ r.job_id|e }}'?
+
+Workspace deliverables and the engagement audit log will be PRESERVED — only the dashboard's events log is removed."
+              hx-target="closest tr"
+              hx-swap="outerHTML swap:0.2s"
+              class="ml-3 text-rose-400 hover:text-rose-300 text-xs font-semibold"
+              title="Remove this run from the dashboard. Deliverables + audit log stay on disk.">
+              Delete
+            </button>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

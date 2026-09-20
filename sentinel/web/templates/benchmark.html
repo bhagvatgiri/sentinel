@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Benchmarks · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Benchmarks</h1>
+  <p class="text-fg-muted mt-1">
+    Reproducible eval surface for Sentinel's pentest agent. Wave 8 — see
+    <code class="text-xs">research/svpb-lite-publish/</code> for the published artifacts.
+  </p>
+</section>
+
+{% if view == 'index' %}
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold">Registry</div>
+    <table class="min-w-full text-sm">
+      <thead class="bg-bg-elev/50">
+        <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+          <th class="px-4 py-2">Name</th>
+          <th class="px-4 py-2">Mode</th>
+          <th class="px-4 py-2">Tasks</th>
+          <th class="px-4 py-2">Metric</th>
+          <th class="px-4 py-2">Description</th>
+          <th class="px-4 py-2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for b in registry %}
+          <tr class="hover:bg-bg-elev/30">
+            <td class="px-4 py-2 font-mono text-accent"><a href="/benchmarks/{{ b.name }}">{{ b.name }}</a></td>
+            <td class="px-4 py-2 text-xxs uppercase">{{ b.mode }}</td>
+            <td class="px-4 py-2 font-mono">{{ b.tasks }}</td>
+            <td class="px-4 py-2 text-xxs">{{ b.metric }}</td>
+            <td class="px-4 py-2 text-fg-muted">{{ b.description }}</td>
+            <td class="px-4 py-2">
+              <form method="POST" action="/benchmarks/{{ b.name }}/run">
+                <button type="submit" class="px-2 py-1 rounded-md bg-accent hover:bg-accent-hover text-white text-xxs font-semibold">
+                  Run (stub)
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold">Trendlines</div>
+    {% if trendlines %}
+      <div class="divide-y divide-line">
+        {% for name, runs in trendlines.items() %}
+          <div class="px-5 py-3">
+            <div class="text-xs font-mono text-accent">{{ name }}</div>
+            <div class="text-xxs text-fg-muted">{{ runs|length }} historical run(s)</div>
+            {% if runs %}
+              <pre class="bg-bg border border-line rounded-md p-2 mt-1 text-xs overflow-x-auto"><code>{{ runs[-1].score | tojson(indent=2) }}</code></pre>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-5 py-3 text-fg-muted text-sm">
+        No historical runs yet. Click <em>Run (stub)</em> on a benchmark to seed one.
+      </div>
+    {% endif %}
+  </section>
+{% else %}
+  {# detail view #}
+  <section class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-semibold">{{ selected.name }}</h2>
+      <p class="text-fg-muted text-sm">{{ selected.description }}</p>
+      <div class="mt-1 text-xxs text-fg-muted">
+        <span class="font-mono">{{ selected.mode }}</span> ·
+        <span class="font-mono">{{ selected.tasks }} tasks</span> ·
+        Metric: {{ selected.metric }}
+      </div>
+    </div>
+    <form method="POST" action="/benchmarks/{{ selected.name }}/run">
+      <button type="submit" class="px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold">
+        Run (stub)
+      </button>
+    </form>
+  </section>
+
+  {% if last_run %}
+    <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+      <div class="px-5 py-3 border-b border-line text-sm font-semibold">
+        Last run · <span class="font-mono text-xxs text-fg-muted">{{ last_run.ts }}</span>
+        {% if last_run.model %}<span class="text-xxs ml-2">model: {{ last_run.model }}</span>{% endif %}
+      </div>
+      <pre class="px-5 py-3 text-xs font-mono overflow-x-auto"><code>{{ last_run.raw | tojson(indent=2) }}</code></pre>
+    </section>
+  {% else %}
+    <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+      <div class="px-5 py-3 text-fg-muted text-sm">
+        No runs persisted yet for <strong>{{ selected.name }}</strong>. Use the <em>Run (stub)</em> button or invoke
+        <code class="font-mono">sentinel benchmark run {{ selected.name }}</code> from the CLI.
+      </div>
+    </section>
+  {% endif %}
+
+  {% if history|length > 1 %}
+    <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-line text-sm font-semibold">History</div>
+      <table class="min-w-full text-xs">
+        <thead class="bg-bg-elev/50">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-4 py-2">Timestamp</th>
+            <th class="px-4 py-2">Model</th>
+            <th class="px-4 py-2">Score</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for r in history %}
+            <tr>
+              <td class="px-4 py-2 font-mono">{{ r.ts }}</td>
+              <td class="px-4 py-2 font-mono">{{ r.model or '—' }}</td>
+              <td class="px-4 py-2 font-mono">{{ r.score | tojson }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+{% endif %}
+{% endblock %}

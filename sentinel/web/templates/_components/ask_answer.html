@@ -1,0 +1,27 @@
+{% if error %}
+  <div class="bg-bg-card border border-sev-critical/40 rounded-lg p-4 text-sm text-sev-critical">{{ error|e }}</div>
+{% elif answer %}
+  <article class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+    <h2 class="text-sm font-semibold mb-2 text-fg-muted">Question</h2>
+    <p class="text-sm mb-5">{{ answer.question|e }}</p>
+
+    <h2 class="text-sm font-semibold mb-2 text-fg-muted">Answer</h2>
+    <div class="text-sm leading-relaxed whitespace-pre-line mb-5">{{ safe_markdown(answer.answer)|e }}</div>
+
+    <h2 class="text-sm font-semibold mb-2 text-fg-muted">Sources</h2>
+    {% if answer.chunks %}
+      <ol class="list-decimal pl-5 text-xs space-y-1 text-fg-muted">
+        {% for c in answer.chunks %}
+          <li>
+            <span class="text-fg">{{ c.title|e }}</span>
+            <span class="text-fg-subtle">[{{ c.source|e }}]</span>
+            {% if c.url %}<a href="{{ c.url|e }}" target="_blank" rel="noopener" class="text-accent hover:underline">link</a>{% endif %}
+            <span class="font-mono text-fg-subtle">d={{ '%.3f'|format(c.distance) }}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="text-xs text-fg-muted">(no chunks retrieved)</p>
+    {% endif %}
+  </article>
+{% endif %}

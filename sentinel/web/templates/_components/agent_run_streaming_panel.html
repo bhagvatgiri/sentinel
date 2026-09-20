@@ -1,0 +1,101 @@
+{# Phase 4.5 STREAM-06 — Streaming subscribers panel.
+   Renders the per-downstream-phase card list derived from
+   `derive_streaming_state(events)` in sentinel/web/routes/agent_runs.py.
+   Consumed via `{% include '_components/agent_run_streaming_panel.html' %}`
+   from `_components/agent_run_body.html` so the HTMX 2s-poll refresh
+   picks it up automatically alongside the phase ladder + brain panel +
+   activity stream. #}
+
+<section class="mt-6" data-testid="streaming-panel">
+  <h2 class="text-base font-semibold mb-3 flex items-center gap-2">
+    <i data-lucide="zap" class="w-4 h-4 text-accent"></i>
+    Streaming subscribers
+  </h2>
+
+  {# Halted banner — visible when subscribers_halted has fired (the
+     load-bearing UI surface for Plan 04.5-05's cost-cap watchdog). #}
+  {% if streaming.halted.is_halted %}
+  <div class="mb-3 px-4 py-3 rounded-lg border border-rose-700 bg-rose-950/50 text-rose-200"
+       data-testid="streaming-halted-banner">
+    <div class="font-semibold flex items-center gap-2">
+      <i data-lucide="octagon-alert" class="w-4 h-4"></i>
+      Subscribers halted
+    </div>
+    <div class="text-xs mt-1">
+      reason: <span class="font-mono">{{ streaming.halted.reason|e }}</span>
+      {% if streaming.halted.triggered_by %}
+        · triggered by: <span class="font-mono">{{ streaming.halted.triggered_by|e }}</span>
+      {% endif %}
+      {% if streaming.halted.ts %}
+        · at ts={{ "%.1f"|format(streaming.halted.ts) }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# Empty state — only when there is NO streaming activity AND the halt
+     banner is also absent. Legacy runs (pre-Phase-4.5) and runs aborted
+     before any subscriber fired land here. #}
+  {% if streaming.total_subscriber_fired == 0 and not streaming.halted.is_halted %}
+  <div class="px-4 py-3 rounded-lg border border-line bg-bg-card text-fg-muted text-xs"
+       data-testid="streaming-empty-state">
+    No streaming activity for this run. Streaming subscribers install at
+    pipeline startup; if this run pre-dates Phase 4.5 OR was aborted
+    before any phase fired, this panel stays empty.
+  </div>
+  {% else %}
+
+  {# Per-downstream-phase card list. cost_cap_watchdog + _other are
+     rendered separately below (footer + secondary row) so the primary
+     card grid stays focused on the user-visible streaming phases. #}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    {% for phase_name, info in streaming.phases.items() %}
+    {% if phase_name not in ('cost_cap_watchdog', '_other') %}
+    <div class="px-4 py-3 rounded-lg border border-line bg-bg-card"
+         data-testid="streaming-phase-{{ phase_name|e }}">
+      <div class="font-semibold text-sm">{{ phase_name|e }}</div>
+      <div class="text-xs text-fg-muted mt-1">
+        absorbed: <span class="font-mono text-fg">{{ info.absorbed_count }}</span>
+        · errors: <span class="font-mono {% if info.error_count > 0 %}text-rose-400{% endif %}">{{ info.error_count }}</span>
+      </div>
+      {% if info.install_ts %}
+      <div class="text-xs text-fg-subtle mt-1">installed at ts={{ "%.1f"|format(info.install_ts) }}</div>
+      {% endif %}
+      {% if info.last_absorbed_ts %}
+      <div class="text-xs text-fg-subtle">last absorbed at ts={{ "%.1f"|format(info.last_absorbed_ts) }}</div>
+      {% endif %}
+      {% if info.per_trigger %}
+      <div class="text-xs text-fg-subtle mt-2">
+        triggers:
+        {% for trig, count in info.per_trigger.items() %}
+          <span class="font-mono">{{ trig|e }}={{ count }}</span>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {# Cost-cap watchdog footer row — small secondary line when the
+     watchdog has fired (Plan 04.5-05). Not a primary card because the
+     watchdog is a system-row, not a user-facing streaming phase. #}
+  {% if 'cost_cap_watchdog' in streaming.phases %}
+  <div class="mt-2 text-xs text-fg-subtle" data-testid="streaming-cost-cap-watchdog-row">
+    cost-cap watchdog: fired {{ streaming.phases.cost_cap_watchdog.absorbed_count }} time(s)
+    {% if streaming.phases.cost_cap_watchdog.last_absorbed_ts %}
+      · last fire at ts={{ "%.1f"|format(streaming.phases.cost_cap_watchdog.last_absorbed_ts) }}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# _other bucket — defensive surface for future / unknown callback_name
+     values so a new subscriber doesn't silently land off the dashboard. #}
+  {% if '_other' in streaming.phases %}
+  <div class="mt-1 text-xs text-fg-subtle" data-testid="streaming-other-row">
+    other subscribers fired: {{ streaming.phases._other.absorbed_count }}
+  </div>
+  {% endif %}
+
+  {% endif %}
+</section>

@@ -1,0 +1,9 @@
+<div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+  <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+    <i data-lucide="file-text" class="w-4 h-4 text-fg-muted"></i>
+    <code class="font-mono">{{ filename|e }}</code>
+  </div>
+  <div class="p-5 prose prose-invert prose-sm max-w-none text-fg leading-relaxed">
+    {{ safe_markdown(text)|safe }}
+  </div>
+</div>

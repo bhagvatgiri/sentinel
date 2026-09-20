@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Created · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight flex items-center gap-3">
+    <i data-lucide="check-circle-2" class="w-7 h-7 text-sev-ok"></i>
+    Scope file created
+  </h1>
+</section>
+
+<div class="bg-bg-card border border-line rounded-lg shadow-card p-6 space-y-3 max-w-3xl">
+  <div><span class="text-xxs uppercase tracking-wider text-fg-muted">File</span><div class="font-mono text-sm">{{ path|e }}</div></div>
+  <div><span class="text-xxs uppercase tracking-wider text-fg-muted">SHA-256</span><div class="font-mono text-xs text-fg-muted break-all">{{ sha256 }}</div></div>
+  <details class="border-t border-line pt-3">
+    <summary class="cursor-pointer text-xs text-fg-muted">Show YAML</summary>
+    <pre class="mt-2 bg-bg border border-line rounded-md p-3 text-xs font-mono overflow-x-auto"><code>{{ yaml_text|e }}</code></pre>
+  </details>
+  <div class="flex gap-2 pt-2">
+    <a href="/engagements/{{ filename|e }}" class="px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold">View detail</a>
+    <a href="/scan?eng={{ filename|e }}" class="px-3 py-1.5 rounded-md border border-line hover:border-line-hover text-xs">Launch a scan →</a>
+  </div>
+</div>
+{% endblock %}

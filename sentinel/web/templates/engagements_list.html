@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Engagements · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Engagements</h1>
+    <p class="text-fg-muted mt-1">Scope files in <code class="font-mono text-fg-subtle">{{ cfg.scopes_dir|e }}</code> · {{ rows|length }} total</p>
+  </div>
+  <a href="/engagements/new"
+     class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold flex items-center gap-2 shadow-glow">
+    <i data-lucide="plus" class="w-4 h-4"></i> New engagement
+  </a>
+</section>
+
+{% if rows %}
+  <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-bg-elev/50 border-b border-line">
+        <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+          <th class="px-5 py-2.5 font-semibold">Client / Engagement</th>
+          <th class="px-5 py-2.5 font-semibold">Targets</th>
+          <th class="px-5 py-2.5 font-semibold">Validity</th>
+          <th class="px-5 py-2.5 font-semibold">Authorized by</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for r in rows %}
+        <tr class="hover:bg-bg-elev/40 cursor-pointer" onclick="window.location.href='/engagements/{{ r.engagement.filename|e }}'">
+          <td class="px-5 py-3">
+            <div class="font-medium">{{ r.engagement.client|e }} <span class="text-fg-muted">/</span> {{ r.engagement.engagement_id|e }}</div>
+            <div class="text-xxs text-fg-subtle font-mono">{{ r.engagement.filename|e }}</div>
+          </td>
+          <td class="px-5 py-3 text-xs text-fg-muted">
+            {{ r.n_repos }} repos · {{ r.n_domains }} domains · {{ r.n_ips }} IP ranges
+          </td>
+          <td class="px-5 py-3 text-xs">
+            {% if r.valid_now %}
+              <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Active</span>
+            {% else %}
+              <span class="chip chip-info">Inactive</span>
+            {% endif %}
+            <div class="text-xxs text-fg-muted mt-1">{{ r.engagement.valid_from }} → {{ r.engagement.valid_until }}</div>
+          </td>
+          <td class="px-5 py-3 text-xs font-mono text-fg-muted">{{ r.engagement.authorized_by|e }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-bg-card border border-line rounded-lg p-12 text-center text-fg-muted">
+    <i data-lucide="folder-open" class="w-8 h-8 mx-auto mb-2 text-fg-subtle"></i>
+    <p>No engagement scopes in <code class="font-mono text-fg-subtle">{{ cfg.scopes_dir|e }}</code></p>
+    <a href="/engagements/new" class="inline-block mt-3 text-accent hover:text-accent-hover text-sm">Create your first →</a>
+  </div>
+{% endif %}
+{% endblock %}

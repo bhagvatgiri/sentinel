@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Findings · Sentinel{% endblock %}
+
+{% block content %}
+
+<section class="mb-8">
+  <h1 class="text-3xl font-semibold tracking-tight">Findings</h1>
+  <p class="text-fg-muted mt-1">Browse findings from any previous scan run.</p>
+</section>
+
+{% if runs %}
+  <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-bg-elev/50 border-b border-line">
+        <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+          <th class="px-5 py-2.5 font-semibold">Client / Engagement</th>
+          <th class="px-5 py-2.5 font-semibold">Scanners</th>
+          <th class="px-5 py-2.5 font-semibold text-right">Findings</th>
+          <th class="px-5 py-2.5 font-semibold text-right">Errors</th>
+          <th class="px-5 py-2.5 font-semibold">Last run</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for r in runs %}
+        <tr class="hover:bg-bg-elev/40 transition-colors cursor-pointer" onclick="window.location.href='/findings/{{ r.filename|e }}'">
+          <td class="px-5 py-3">
+            <div class="font-medium">{{ r.client|e }} <span class="text-fg-muted">/</span> {{ r.engagement|e }}</div>
+            <div class="text-xxs text-fg-subtle font-mono">{{ r.filename|e }}</div>
+          </td>
+          <td class="px-5 py-3 text-xxs font-mono text-fg-muted">{{ r.scanners | join(', ') }}</td>
+          <td class="px-5 py-3 text-right font-semibold">{{ r.findings_count }}</td>
+          <td class="px-5 py-3 text-right">
+            {% if r.errors_count %}
+              <span class="text-sev-medium">{{ r.errors_count }}</span>
+            {% else %}
+              <span class="text-fg-subtle">—</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-xxs font-mono text-fg-muted">{{ r.mtime }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-bg-card border border-line rounded-lg p-12 text-center text-fg-muted">
+    <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-fg-subtle"></i>
+    <p>No runs in <code class="font-mono text-fg-subtle">{{ cfg.runs_dir|e }}</code></p>
+    <a href="/scan" class="inline-block mt-3 text-accent hover:text-accent-hover text-sm">Launch a scan →</a>
+  </div>
+{% endif %}
+
+{% endblock %}

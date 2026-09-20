@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Tools · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Tools &amp; settings</h1>
+  <p class="text-fg-muted mt-1">{{ n_ok }} / {{ n_total }} scanners installed.</p>
+</section>
+
+<!-- Scanner health table — grouped by tier -->
+{% set tier_meta = {
+    'passive': ('Passive scanners', 'shield', 'Read-only / static / dependency / passive-network'),
+    'active':  ('Active scanners', 'zap', 'Sends payloads or brute-force traffic at the target'),
+    'network': ('Network', 'network', 'Network-layer probes'),
+    'ai':      ('AI orchestration', 'sparkles', 'AI-driven scanners'),
+} %}
+{% for tier in tier_order %}
+  {% set tier_rows = grouped.get(tier, []) %}
+  {% if tier_rows %}
+    {% set meta = tier_meta.get(tier, (tier, 'activity', '')) %}
+    <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-6">
+      <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+        <i data-lucide="{{ meta[1] }}" class="w-4 h-4 text-fg-muted"></i>
+        {{ meta[0] }}
+        <span class="text-xxs font-normal text-fg-muted ml-1">({{ tier_rows|selectattr('ok')|list|length }}/{{ tier_rows|length }})</span>
+        <span class="text-xxs font-normal text-fg-subtle ml-2">{{ meta[2] }}</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-bg-elev/50 border-b border-line">
+          <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+            <th class="px-5 py-2.5 font-semibold">Tool</th>
+            <th class="px-5 py-2.5 font-semibold">What it does</th>
+            <th class="px-5 py-2.5 font-semibold">Status</th>
+            <th class="px-5 py-2.5 font-semibold">Path / install hint</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for r in tier_rows %}
+            <tr class="hover:bg-bg-elev/40">
+              <td class="px-5 py-2.5 font-mono text-xs">{{ r.name }}</td>
+              <td class="px-5 py-2.5 text-xs text-fg-muted">{{ r.label }}</td>
+              <td class="px-5 py-2.5">
+                {% if r.ok %}
+                  <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Available</span>
+                {% else %}
+                  <span class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> Missing</span>
+                {% endif %}
+              </td>
+              <td class="px-5 py-2.5 text-xs font-mono text-fg-muted">
+                {% if r.ok %}{{ r.path|e }}{% else %}<span class="text-fg-subtle">{{ r.install_hint|e }}</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+{% endfor %}
+
+<!-- Settings (config) -->
+<section class="bg-bg-card border border-line rounded-lg shadow-card p-5">
+  <h2 class="text-sm font-semibold mb-4 flex items-center gap-1.5"><i data-lucide="settings" class="w-4 h-4 text-fg-muted"></i> Configuration</h2>
+  <form method="POST" action="/tools/config" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for key, label in [
+      ('vault_path', 'Obsidian vault path'),
+      ('corpus_dir', 'Corpus directory'),
+      ('scopes_dir', 'Scopes directory'),
+      ('runs_dir',   'Runs directory'),
+      ('ollama_host','Ollama host'),
+      ('ollama_model','Ollama chat model'),
+      ('embed_model','Ollama embed model'),
+    ] %}
+      <div>
+        <label class="block text-xxs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">{{ label }}</label>
+        <input type="text" name="{{ key }}" value="{{ cfg|attr(key)|e }}"
+               class="w-full bg-bg-elev border border-line rounded-md px-3 py-2 text-sm font-mono" />
+      </div>
+    {% endfor %}
+    <div class="md:col-span-2 pt-2">
+      <button type="submit" class="px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-semibold">Save</button>
+      <span class="ml-2 text-xs text-fg-muted">Stored in <code class="font-mono text-fg-subtle">~/.sentinel/ui-config.json</code></span>
+    </div>
+  </form>
+</section>
+{% endblock %}

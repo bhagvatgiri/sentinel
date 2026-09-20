@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Agent run · {{ job_id|e }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Agent run</h1>
+    <p class="text-fg-muted text-xs mt-1">
+      <span class="font-mono">{{ job_id|e }}</span>
+      <span class="mx-2 text-fg-subtle">·</span>
+      <span class="font-mono text-fg-subtle">{{ events_path|e }}</span>
+    </p>
+  </div>
+  <div class="flex items-center gap-4">
+    <a href="/agent-runs" class="text-xs text-fg-muted hover:text-fg">← all runs</a>
+    <button
+      hx-delete="/agent-runs/{{ job_id|e }}"
+      hx-confirm="Delete the dashboard view for run '{{ job_id|e }}'?
+
+Workspace deliverables and the engagement audit log will be PRESERVED — only the dashboard's events log is removed."
+      hx-on::after-request="if(event.detail.successful) window.location.href='/agent-runs'"
+      class="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+      title="Remove this run from the dashboard. Deliverables + audit log stay on disk.">
+      Delete run
+    </button>
+  </div>
+</section>
+
+{# UI parity (2026-XX-XX): link to the OOB / bbot / visual triage panels
+   so the operator can navigate without typing URLs manually. #}
+<nav class="mt-3 flex flex-wrap gap-3 text-sm" data-testid="agent-run-nav">
+  <a href="/agent-runs/{{ job_id }}/oob" class="text-fg-muted hover:text-fg underline-offset-4 hover:underline">OOB callbacks</a>
+  <a href="/agent-runs/{{ job_id }}/bbot" class="text-fg-muted hover:text-fg underline-offset-4 hover:underline">bbot runs</a>
+  <a href="/agent-runs/{{ job_id }}/visual" class="text-fg-muted hover:text-fg underline-offset-4 hover:underline">Visual triage</a>
+  <a href="/agent-runs/{{ job_id }}/oauth-installs" class="text-fg-muted hover:text-fg underline-offset-4 hover:underline">OAuth installs</a>
+</nav>
+
+{# Captcha-solves counter card (Quick 260517-f7a, 2026-XX-XX).
+   Loaded via HTMX fragment route /agent-runs/<job>/captcha-count —
+   the count is rendered by sentinel/web/routes/agent_signup.py so the
+   existing agent_runs route handler stays untouched (planner pin B3,
+   keeps the count's render path independently testable). Polls every
+   3s; empty state (count=0) renders a hidden placeholder so polling
+   continues without visual clutter. #}
+<div hx-get="/agent-runs/{{ job_id|e }}/captcha-count"
+     hx-trigger="load, every 3s"
+     hx-swap="innerHTML"
+     class="mb-4"></div>
+
+{# Self-polling wrapper. While the run is in progress, swap the body every 2s. #}
+<div id="agent-run-body"
+     {% if state.meta.status == 'running' %}
+       hx-get="/agent-runs/{{ job_id|e }}/refresh"
+       hx-trigger="every 2s"
+       hx-swap="innerHTML"
+     {% endif %}>
+  {% include "_components/agent_run_body.html" %}
+</div>
+
+{# Phase B (#64) operator chat — only visible while run is in progress. #}
+{# Loads from /agent-runs/<job>/chat/history on page load, then HTMX swaps #}
+{# back the same panel on every send to keep history fresh. #}
+{% if state.meta.status == 'running' %}
+<section class="mt-6"
+         hx-get="/agent-runs/{{ job_id|e }}/chat/history"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML">
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 text-xs text-fg-muted">
+    Loading operator chat panel...
+  </div>
+</section>
+
+{# Human-in-the-loop login (2026-XX-XX) — agents can pause and ask the
+   operator to sign in via the CDP-attached Chrome. Polled every 3s so a
+   request emitted by an agent shows up promptly. Empty-state renders
+   nothing visible. Always polled (even after run completes) so late
+   completions / skips survive operator browser refresh. #}
+<section class="mt-6"
+         hx-get="/agent-runs/{{ job_id|e }}/login/pending"
+         hx-trigger="load, every 3s"
+         hx-swap="innerHTML">
+  <div class="text-xs text-fg-muted">Loading login requests panel...</div>
+</section>
+
+{# Human-in-the-loop signup (Quick 260517-f7a, 2026-XX-XX) — agents can
+   pause and ask the operator to manually create an account when they hit
+   an unsolvable signup gate. Empty-state renders nothing visible. Polled
+   every 3s so a request emitted by an agent shows up promptly. #}
+<section class="mt-6"
+         hx-get="/agent-runs/{{ job_id|e }}/signup/pending"
+         hx-trigger="load, every 3s"
+         hx-swap="innerHTML">
+  <div class="text-xs text-fg-muted">Loading signup requests panel...</div>
+</section>
+{% endif %}
+{% endblock %}

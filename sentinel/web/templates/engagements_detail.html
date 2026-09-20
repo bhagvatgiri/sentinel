@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}{{ scope.client }} · Engagement · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <a href="/engagements" class="text-xs text-fg-muted hover:text-fg flex items-center gap-1 mb-2">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All engagements
+  </a>
+  <h1 class="text-3xl font-semibold tracking-tight">{{ scope.client|e }} <span class="text-fg-muted">/</span> {{ scope.engagement_id|e }}</h1>
+  <p class="text-fg-muted mt-1 font-mono text-xs">{{ filename|e }}</p>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Scope summary -->
+  <div class="lg:col-span-2 bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+      <i data-lucide="file-text" class="w-4 h-4 text-fg-muted"></i> Scope
+    </div>
+    <div class="px-5 py-4 space-y-3 text-sm">
+      <div><span class="text-fg-muted">Authorized by:</span> {{ scope.authorized_by|e }}</div>
+      <div><span class="text-fg-muted">Valid:</span> {{ scope.valid_from }} → {{ scope.valid_until }}</div>
+      {% if scope.authorization_doc %}<div><span class="text-fg-muted">Doc:</span> <code class="font-mono">{{ scope.authorization_doc|e }}</code></div>{% endif %}
+      {% set targets = scope.targets or {} %}
+      {% if targets.repos %}
+        <div><span class="text-fg-muted">Repos:</span><ul class="ml-4 list-disc text-xs font-mono">{% for r in targets.repos %}<li>{{ r|e }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      {% if targets.domains %}
+        <div><span class="text-fg-muted">Domains:</span><ul class="ml-4 list-disc text-xs font-mono">{% for d in targets.domains %}<li>{{ d|e }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      {% if targets.ips %}
+        <div><span class="text-fg-muted">IPs:</span><ul class="ml-4 list-disc text-xs font-mono">{% for i in targets.ips %}<li>{{ i|e }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      {% if scope.out_of_scope %}
+        <div><span class="text-sev-critical">Out of scope:</span><ul class="ml-4 list-disc text-xs font-mono">{% for o in scope.out_of_scope %}<li>{{ o|e }}</li>{% endfor %}</ul></div>
+      {% endif %}
+    </div>
+    <details class="border-t border-line">
+      <summary class="cursor-pointer px-5 py-2 text-xs text-fg-muted hover:bg-bg-elev/50">SHA-256 + raw YAML</summary>
+      <div class="px-5 py-3">
+        <div class="text-xxs font-mono text-fg-subtle break-all mb-2">{{ sha256 }}</div>
+        <pre class="bg-bg border border-line rounded-md p-3 text-xs font-mono overflow-x-auto"><code>{{ yaml_text|e }}</code></pre>
+      </div>
+    </details>
+  </div>
+
+  <!-- Actions panel -->
+  <div class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold">Actions</div>
+    <div class="px-5 py-4 space-y-2 text-sm">
+      <a href="/scan?eng={{ filename|e }}" class="block px-3 py-2 rounded-md bg-accent/15 text-accent hover:bg-accent/25 flex items-center gap-2">
+        <i data-lucide="zap" class="w-4 h-4"></i> Launch scan
+      </a>
+      <a href="/findings" class="block px-3 py-2 rounded-md border border-line hover:border-line-hover flex items-center gap-2">
+        <i data-lucide="list-checks" class="w-4 h-4"></i> View findings
+      </a>
+      {% if audit_path %}
+      <a href="/audit/{{ audit_path.split('/')[-1]|e }}" class="block px-3 py-2 rounded-md border border-line hover:border-line-hover flex items-center gap-2">
+        <i data-lucide="shield" class="w-4 h-4"></i> Audit log
+      </a>
+      {% endif %}
+      <a href="/report" class="block px-3 py-2 rounded-md border border-line hover:border-line-hover flex items-center gap-2">
+        <i data-lucide="file-text" class="w-4 h-4"></i> Generate report
+      </a>
+    </div>
+  </div>
+</div>
+
+{% if creds_summary %}
+<section class="mt-6 bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+  <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+    <i data-lucide="key-round" class="w-4 h-4 text-fg-muted"></i>
+    Configured login methods ({{ creds_summary|length }})
+    <span class="text-xxs font-normal text-fg-subtle ml-2">— pentest agents auto-call <code class="font-mono">login(name=...)</code> when they hit a protected page</span>
+  </div>
+  <ul class="divide-y divide-line">
+    {% for c in creds_summary %}
+      <li class="px-5 py-3">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="chip chip-info font-mono">{{ c.method|e }}</span>
+          <span class="font-semibold">{{ c.name|e }}</span>
+          {% if c.username %}<span class="text-xxs text-fg-muted font-mono">user={{ c.username|e }}</span>{% endif %}
+          {% if c.url %}<span class="text-xxs text-fg-muted font-mono">url={{ c.url|e }}</span>{% endif %}
+        </div>
+        {% if c.env_var %}
+          <div class="text-xxs mt-1.5 flex items-center gap-1.5">
+            {% if c.env_set %}
+              <span class="chip chip-ok"><i data-lucide="check" class="w-3 h-3"></i> {{ c.env_var|e }} set</span>
+            {% else %}
+              <span class="chip chip-medium"><i data-lucide="lock" class="w-3 h-3"></i> {{ c.env_var|e }} not set</span>
+              <span class="text-fg-muted">— export it in the shell that launches the pipeline.</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="text-xxs mt-1.5 text-fg-muted">No <code class="font-mono">password_env</code> / <code class="font-mono">token_env</code> declared.</div>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if runs %}
+<section class="mt-6 bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+  <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+    <i data-lucide="activity" class="w-4 h-4 text-fg-muted"></i> Runs ({{ runs|length }})
+  </div>
+  <ul class="divide-y divide-line">
+    {% for r in runs %}
+      <li class="px-5 py-3 hover:bg-bg-elev/40 cursor-pointer" onclick="window.location.href='/findings/{{ r.filename|e }}'">
+        <div class="flex justify-between text-sm">
+          <span class="font-mono text-fg-muted">{{ r.filename|e }}</span>
+          <span>{{ r.findings_count }} findings · {{ r.scanners | join(', ') }}</span>
+        </div>
+        <div class="text-xxs text-fg-subtle font-mono mt-0.5">{{ r.mtime }}</div>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

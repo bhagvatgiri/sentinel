@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Library · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h1 class="text-3xl font-semibold tracking-tight">Library</h1>
+  <p class="text-fg-muted mt-1">
+    {% if catalog_present %}
+      {{ catalog.get('source', '') }} · catalog snapshot {{ catalog.get('fetched_at','')[:10] }}
+    {% else %}
+      No catalog. Run <code class="font-mono text-fg-subtle">tools/extract-security-books-catalog.py</code> to populate.
+    {% endif %}
+  </p>
+</section>
+
+{% if catalog_present %}
+<!-- Tiles -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+    <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1.5">Total catalog</div>
+    <div class="text-3xl font-semibold tracking-tight">{{ n_total }}</div>
+    <div class="text-xxs text-fg-muted mt-1">books across {{ by_category|length }} categories</div>
+  </div>
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+    <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1.5">On disk</div>
+    <div class="text-3xl font-semibold tracking-tight text-sev-ok">{{ n_present }}</div>
+    <div class="text-xxs text-fg-muted mt-1">{{ "%.0f"|format(total_bytes / 1024 / 1024) }} MB</div>
+  </div>
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+    <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1.5">Missing</div>
+    <div class="text-3xl font-semibold tracking-tight {% if n_missing > 0 %}text-sev-medium{% else %}text-fg{% endif %}">{{ n_missing }}</div>
+    <div class="text-xxs text-fg-muted mt-1">re-run downloader to fetch</div>
+  </div>
+  <a href="/ask?q=&amp;source_filter=books" class="block bg-bg-card border border-line rounded-lg shadow-card p-4 hover:border-accent transition-colors">
+    <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1.5">Corpus chunks</div>
+    <div class="text-3xl font-semibold tracking-tight">{{ book_chunks }}</div>
+    <div class="text-xxs text-fg-muted mt-1">embedded as <code class="font-mono">source=books</code></div>
+  </a>
+</section>
+
+<!-- Permission grant + how-to -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+    <h2 class="text-sm font-semibold mb-2 flex items-center gap-1.5">
+      <i data-lucide="file-check" class="w-4 h-4 text-fg-muted"></i>
+      PERMISSION.txt
+      {% if permission_present %}
+        <span class="chip chip-ok ml-1">present</span>
+      {% else %}
+        <span class="chip chip-medium ml-1">missing</span>
+      {% endif %}
+    </h2>
+    {% if permission_present %}
+      <pre class="text-xxs font-mono text-fg-muted whitespace-pre-wrap">{{ permission_excerpt|e }}{% if permission_excerpt|length >= 1000 %}…{% endif %}</pre>
+    {% else %}
+      <p class="text-xs text-fg-muted">No grant record on file. The downloader's intent depends on this artifact existing alongside the books.</p>
+    {% endif %}
+  </div>
+  <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+    <h2 class="text-sm font-semibold mb-2 flex items-center gap-1.5">
+      <i data-lucide="terminal" class="w-4 h-4 text-fg-muted"></i> How to refresh
+    </h2>
+    <ol class="text-xs text-fg-muted space-y-1.5 ml-4 list-decimal">
+      <li>Refresh catalog: <code class="font-mono text-fg-subtle">.venv/bin/python tools/extract-security-books-catalog.py</code></li>
+      <li>Download new/changed books: <code class="font-mono text-fg-subtle">.venv/bin/python tools/download-security-books.py</code></li>
+      <li>Re-ingest: <code class="font-mono text-fg-subtle">sentinel ingest --source books --books-dir library --corpus-dir ~/sentinel-corpus</code></li>
+    </ol>
+    {% if last_run %}
+      <p class="text-xxs text-fg-subtle mt-3">
+        Last download run: {{ last_run.get('started_at','?')[:19] }} —
+        +{{ last_run.get('downloaded',0) }} downloaded ·
+        {{ last_run.get('skipped',0) }} skipped ·
+        {{ last_run.get('failed',0) }} failed ·
+        {{ "%.0f"|format(last_run.get('bytes',0) / 1024 / 1024) }} MB
+      </p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Books grouped by category -->
+{% for cat, books in by_category.items() %}
+  <section class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden mb-4">
+    <div class="px-5 py-3 border-b border-line text-sm font-semibold flex items-center gap-1.5">
+      <i data-lucide="folder" class="w-4 h-4 text-fg-muted"></i> {{ cat|e }}
+      <span class="text-xxs font-normal text-fg-muted ml-2">{{ books|length }} book{{ '' if books|length == 1 else 's' }}</span>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-bg-elev/50 border-b border-line">
+        <tr class="text-left text-xxs uppercase tracking-wider text-fg-muted">
+          <th class="px-5 py-2.5 font-semibold">Title</th>
+          <th class="px-5 py-2.5 font-semibold">Author</th>
+          <th class="px-5 py-2.5 font-semibold">Status</th>
+          <th class="px-5 py-2.5 font-semibold">Size</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for b in books %}
+          <tr class="hover:bg-bg-elev/40">
+            <td class="px-5 py-2.5">
+              <div class="font-medium">{{ b.title|e }}</div>
+              {% if b.notion_url %}
+                <a href="{{ b.notion_url|e }}" target="_blank" rel="noopener noreferrer"
+                   class="text-xxs text-fg-subtle hover:text-accent font-mono">{{ b.filename|e }}</a>
+              {% else %}
+                <div class="text-xxs text-fg-subtle font-mono">{{ b.filename|e }}</div>
+              {% endif %}
+            </td>
+            <td class="px-5 py-2.5 text-xs text-fg-muted">{{ b.author|e or '-' }}</td>
+            <td class="px-5 py-2.5">
+              {% if b.status in ('downloaded', 'skipped_existing') %}
+                <span class="chip chip-ok"><i data-lucide="check" class="w-3 h-3"></i> on disk</span>
+              {% elif b.status == 'failed' %}
+                <span class="chip chip-critical"><i data-lucide="x" class="w-3 h-3"></i> failed</span>
+              {% else %}
+                <span class="chip chip-low">missing</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-2.5 text-xs text-fg-muted font-mono">
+              {% if b.size > 0 %}{{ "%.1f"|format(b.size / 1024 / 1024) }} MB{% else %}-{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endfor %}
+{% else %}
+<section class="bg-bg-card border border-line rounded-lg p-8 text-center">
+  <p class="text-fg-muted">
+    No catalog. Run <code class="font-mono text-fg-subtle">tools/extract-security-books-catalog.py</code>
+    to populate <code class="font-mono">library/security-books-catalog.json</code>.
+  </p>
+</section>
+{% endif %}
+{% endblock %}

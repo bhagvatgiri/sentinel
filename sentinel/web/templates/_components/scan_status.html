@@ -1,0 +1,84 @@
+{# Renders a live job status block. While running, polls itself every 2s.
+   `hx-on::after-swap` fires after each HTMX swap and pins the log pane to
+   the bottom so new lines stay in view (HTMX swaps the whole block, so we
+   can't just rely on CSS scroll position — it resets every 2s). #}
+<div id="scan-status-{{ job.job_id }}"
+     {% if job.is_running %}
+       hx-get="/scan/status/{{ job.job_id }}"
+       hx-trigger="every 2s"
+       hx-swap="outerHTML"
+       hx-on::after-swap="const p=document.getElementById('scan-log-{{ job.job_id }}'); if(p){p.scrollTop=p.scrollHeight;}"
+     {% endif %}
+     class="bg-bg-card border border-line rounded-lg shadow-card overflow-hidden">
+
+  <header class="flex items-center gap-3 px-5 py-3 border-b border-line">
+    {% if job.is_running %}
+      <span class="chip chip-low"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Running</span>
+    {% elif job.exit_code == 0 %}
+      <span class="chip chip-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Complete</span>
+    {% else %}
+      <span class="chip chip-critical"><i data-lucide="x-circle" class="w-3 h-3"></i> Failed (exit {{ job.exit_code }})</span>
+    {% endif %}
+    <span class="text-xs text-fg-muted font-mono">{{ job.job_id }}</span>
+    <span class="text-xs text-fg-muted ml-auto">elapsed {{ job.elapsed_sec }}s · {{ job.log_lines|length }} lines</span>
+    {% if job.is_running %}
+      <button hx-post="/scan/stop/{{ job.job_id }}"
+              hx-target="#scan-status-{{ job.job_id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Stop this scan? Subprocess will receive SIGTERM, then SIGKILL after 5s."
+              class="text-xs px-2.5 py-1 rounded-md bg-sev-critical/15 text-sev-critical border border-sev-critical/30 hover:bg-sev-critical/25">
+        <i data-lucide="square" class="w-3 h-3 inline"></i> Stop
+      </button>
+    {% endif %}
+  </header>
+
+  <div class="px-5 py-3 border-b border-line">
+    <div class="text-xxs uppercase tracking-wider text-fg-muted mb-1">Command</div>
+    <pre class="text-xs font-mono text-fg-muted overflow-x-auto whitespace-pre-wrap break-all">{{ argv_str|e }}</pre>
+  </div>
+
+  <div class="px-5 py-3">
+    <div class="flex items-center justify-between mb-1.5">
+      <div class="flex items-center gap-2">
+        <i data-lucide="terminal" class="w-3.5 h-3.5 text-fg-muted"></i>
+        <span class="text-xxs uppercase tracking-wider text-fg-muted">Live log</span>
+        <span class="text-xxs text-fg-subtle">last {{ tail_lines }} of {{ job.log_lines|length }}</span>
+      </div>
+      <div class="flex items-center gap-3 text-xxs">
+        {% if job.is_running %}
+          <span class="text-fg-subtle inline-flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-sev-low animate-pulse"></span> streaming
+          </span>
+        {% endif %}
+        {# For agent / scan-autonomous / brain-grow runs the pipeline writes a
+           structured event log keyed by job_id — link to the dashboard. #}
+        {% set _is_agent_job = job.argv and (job.argv[1] in ('agent','scan-autonomous','brain-grow') or
+                                              (job.argv|length > 1 and 'agent' in job.argv[1])) %}
+        {% if _is_agent_job %}
+          <a href="/agent-runs/{{ job.job_id|e }}"
+             target="_blank"
+             class="text-accent hover:text-accent-hover font-semibold inline-flex items-center gap-1">
+            <i data-lucide="brain" class="w-3 h-3"></i> Dashboard →
+          </a>
+        {% endif %}
+        {% if not job.is_running and job.exit_code == 0 and job.expected_run_json %}
+          {% set _name = job.expected_run_json.split('/')[-1] %}
+          <a href="/findings/{{ _name|e }}" class="text-accent hover:text-accent-hover font-semibold">View findings →</a>
+        {% endif %}
+      </div>
+    </div>
+    {# Terminal-style pane: black bg, slightly green text, taller. The id lets
+       hx-on::after-swap (above) scroll us to the bottom on each poll. #}
+    <pre id="scan-log-{{ job.job_id }}"
+         class="bg-black border border-line rounded-md p-3 text-xs font-mono text-emerald-200 overflow-x-auto h-[480px] overflow-y-auto leading-relaxed whitespace-pre-wrap"><code>{{ job.tail(tail_lines)|e }}</code></pre>
+    {% if stop_msg %}<div class="mt-2 text-xs text-fg-muted">{{ stop_msg|e }}</div>{% endif %}
+  </div>
+</div>
+<script>
+  // First render: also scroll to bottom (after-swap doesn't fire on the
+  // initial POST response, only on subsequent HTMX swaps).
+  (function() {
+    var p = document.getElementById('scan-log-{{ job.job_id }}');
+    if (p) p.scrollTop = p.scrollHeight;
+  })();
+</script>

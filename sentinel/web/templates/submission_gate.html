@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Submission gate — {{ run_filename }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      Pre-submission gate
+      <span class="text-fg-muted font-mono text-sm ml-2">{{ run_filename }}</span>
+    </h1>
+    <p class="text-fg-muted text-xs mt-1">
+      Scores each finding before it goes to a bounty program. Submit
+      <strong>GO</strong>, fix the reasons on <strong>REVIEW</strong> first, and
+      never submit <strong>HOLD</strong> — those are what come back
+      Informative / N-A / Duplicate.
+    </p>
+  </div>
+  <a href="/findings/{{ run_filename }}" class="text-xs text-fg-muted hover:text-fg">← findings</a>
+</section>
+
+<section class="mb-4">
+  <form method="get" class="flex items-center gap-2 text-sm">
+    <label class="text-fg-muted">Program maturity:</label>
+    <select name="program_maturity" onchange="this.form.submit()"
+            class="bg-bg-card border border-line rounded px-2 py-1">
+      {% for opt in ["", "low", "medium", "high"] %}
+        <option value="{{ opt }}" {{ "selected" if program_maturity == opt else "" }}>
+          {{ opt or "(unset)" }}
+        </option>
+      {% endfor %}
+    </select>
+    <span class="text-fg-muted text-xs">high = mature/heavily-researched (ExampleChat/AcmeProgram-tier) → more dupes</span>
+  </form>
+</section>
+
+<section class="mb-4 flex gap-3 text-sm" data-testid="gate-counts">
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">✅ GO: {{ counts.go }}</span>
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">🟡 REVIEW: {{ counts.review }}</span>
+  <span class="px-2 py-1 rounded bg-bg-card border border-line">⛔ HOLD: {{ counts.hold }}</span>
+</section>
+
+<section data-testid="submission-gate">
+  {% if not verdicts %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-6 text-sm text-fg-muted">
+      No findings in this run to assess.
+    </div>
+  {% else %}
+    {% set chip = {"go": "ok", "review": "medium", "hold": "critical"} %}
+    {% set label = {"go": "✅ GO", "review": "🟡 REVIEW", "hold": "⛔ HOLD"} %}
+    {% for v in verdicts %}
+      <div class="bg-bg-card border border-line rounded-lg shadow-card p-4 mb-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">{{ v.id|e }}</h2>
+          <span class="chip chip-{{ chip[v.decision] }} font-mono text-xs">
+            {{ label[v.decision] }} · {{ v.score }}/100
+          </span>
+        </div>
+        <ul class="mt-2 text-sm text-fg-muted list-disc ml-5">
+          {% for r in v.reasons %}<li>{{ r|e }}</li>{% endfor %}
+        </ul>
+        {% if v.guidance %}
+          <p class="mt-2 text-sm">→ {{ v.guidance|e }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}OAuth installs — {{ job_id }} · Sentinel{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      OAuth installs
+      <span class="text-fg-muted font-mono text-sm ml-2">job {{ job_id }}</span>
+    </h1>
+    <p class="text-fg-muted text-xs mt-1">
+      Apps the agent installed via <code class="font-mono">oauth_install_app</code>
+      (operator-registered in <code class="font-mono">scope.oauth_test_apps</code>).
+      Captured refresh tokens feed the Phase 2.5
+      <code class="font-mono">oauth_refresh_replay</code> verifier (RFC 6749 §10.4).
+    </p>
+  </div>
+  <a href="/agent-runs/{{ job_id }}" class="text-xs text-fg-muted hover:text-fg">← run detail</a>
+</section>
+
+<section data-testid="oauth-installs-panel">
+  {% if not installs %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-6 text-sm text-fg-muted">
+      No OAuth installs for this run yet. The agent calls
+      <code class="font-mono">oauth_install_app(&lt;name&gt;)</code> when it finds
+      an OAuth refresh-token endpoint and an
+      <code class="font-mono">oauth_test_apps</code> entry is registered.
+    </div>
+  {% else %}
+    <div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+      <table class="text-sm w-full">
+        <thead class="text-fg-muted text-xs uppercase">
+          <tr>
+            <th class="text-left py-1 pr-3">App</th>
+            <th class="text-left py-1 pr-3">Started (ts)</th>
+            <th class="text-left py-1 pr-3">Completed (ts)</th>
+            <th class="text-left py-1 pr-3">Bot refresh</th>
+            <th class="text-left py-1 pr-3">User refresh</th>
+            <th class="text-left py-1 pr-3">Failed reason</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for i in installs %}
+          <tr class="border-t border-line">
+            <td class="py-1 pr-3 font-mono">{{ i.app_name|e }}</td>
+            <td class="py-1 pr-3 font-mono text-xs">{{ i.started_ts or "" }}</td>
+            <td class="py-1 pr-3 font-mono text-xs">{{ i.completed_ts or "" }}</td>
+            <td class="py-1 pr-3">{{ "✓" if i.has_refresh_token else "" }}</td>
+            <td class="py-1 pr-3">{{ "✓" if i.has_user_refresh_token else "" }}</td>
+            <td class="py-1 pr-3 font-mono text-xs">{{ i.failed_reason or "" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

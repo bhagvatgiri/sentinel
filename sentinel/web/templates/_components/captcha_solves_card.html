@@ -1,0 +1,18 @@
+{# Captcha-solves counter card (Quick 260517-f7a, 2026-XX-XX).
+   Rendered via HTMX fragment route /agent-runs/<job_id>/captcha-count.
+   Counts captcha_solved records in runs/events-<job_id>.jsonl. When
+   count == 0 the body is hidden; the route still returns 200 so the
+   parent HTMX poll keeps refreshing. The literal count value MUST
+   appear in the response body even when 0 (test pin B3). #}
+
+{% if count > 0 %}
+<div class="bg-bg-card border border-line rounded-lg shadow-card p-4">
+  <div class="text-fg-muted text-xs flex items-center gap-1">
+    <span>🧩</span>
+    <span>Captcha solves</span>
+  </div>
+  <div class="text-2xl font-semibold mt-1">{{ count }}</div>
+</div>
+{% else %}
+<div class="hidden" data-count="{{ count }}">{{ count }}</div>
+{% endif %}
