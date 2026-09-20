@@ -116,6 +116,11 @@ The scanners, agent pipeline, RAG plumbing, reporting, and dashboard are all pre
 
 Sentinel is a security research tool. Use it only against systems you own or are explicitly authorized to test. The author accepts no liability for misuse.
 
+## Demo & contact
+
+A working demonstration with a production-ready build is available. Feel free to reach
+out to learn more: bhagvatgiri28@gmail.com
+
 ## License
 
 This software is proprietary and is owned solely by the author. It is provided for
