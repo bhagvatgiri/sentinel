@@ -1,0 +1,37 @@
+# gitleaks configuration for Sentinel.
+#
+# This repository is a security tool. Its test suite and a few verifier
+# constants intentionally contain fake, non-functional secret-shaped strings
+# (dummy JWTs, placeholder tokens, synthetic benchmark values, and an XSS
+# canary marker) that exist solely to exercise Sentinel's own secret-detection
+# and redaction logic. None are live credentials.
+#
+# The allowlist below scopes those known-good fixtures out of scan results so a
+# gitleaks run (local or CI) reports cleanly, while every other path in the
+# repository is still scanned with the full default ruleset.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret test fixtures and functional constants (no live credentials)"
+
+# Test files whose purpose is to carry fake secret-shaped fixtures.
+paths = [
+  '''tests/test_bash_tool_hardening\.py''',
+  '''tests/test_browser_captcha_solver\.py''',
+  '''tests/test_js_intel_tool\.py''',
+  '''tests/test_pii_bench\.py''',
+  '''tests/test_pii_gate\.py''',
+  '''tests/test_replay_attack\.py''',
+  '''tests/test_verifier_auth_cookies_gate\.py''',
+  '''tests/test_verifier_auth_extended_subtypes\.py''',
+  '''tests/test_verifier_ndtest_auth\.py''',
+]
+
+# Specific non-secret constants in source files.
+regexes = [
+  '''SENTINEL_XSS_VERIFIER_MARKER_9981''',                 # xss.py: reflection canary marker
+  '''8005a76b-66c7-44b3-8f94-355bbff74d27''',              # pii_bench.py: synthetic benchmark value
+  '''invalid-12345''',                                     # auth.py: deliberately-wrong probe password
+]
